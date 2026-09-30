@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand Color Palette -->
+    <color name="indigo_primary">#3F51B5</color>
+    <color name="indigo_dark">#303F9F</color>
+    <color name="indigo_light">#E8EAF6</color>
+    <color name="indigo_50">#EEF2FF</color>
+
+    <!-- Emerald Green Accent for Stock & Financial Highlights -->
+    <color name="emerald_accent">#4CAF50</color>
+    <color name="emerald_dark">#388E3C</color>
+    <color name="emerald_light">#E8F5E9</color>
+
+    <!-- Backgrounds & Neutral Surfaces -->
+    <color name="bg_soft_gray">#F8F9FA</color>
+    <color name="surface_white">#FFFFFF</color>
+    <color name="card_stroke">#E5E7EB</color>
+
+    <!-- Typography -->
+    <color name="text_primary">#1F2937</color>
+    <color name="text_secondary">#6B7280</color>
+    <color name="text_muted">#9CA3AF</color>
+
+    <!-- Badges & Alerts -->
+    <color name="warning_red">#EF4444</color>
+    <color name="warning_red_bg">#FEE2E2</color>
+    <color name="amber_warning">#F59E0B</color>
+    <color name="amber_warning_bg">#FEF3C7</color>
+
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>

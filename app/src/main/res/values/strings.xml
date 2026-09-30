@@ -1,0 +1,64 @@
+<resources>
+    <string name="app_name">Retail Seller App</string>
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_products">Inventory</string>
+    <string name="nav_sales">Sales</string>
+
+    <!-- Dashboard -->
+    <string name="welcome_seller">Welcome Back, Seller!</string>
+    <string name="dashboard_subtitle">Here is your store performance summary today</string>
+    <string name="stat_active_products">Active Products</string>
+    <string name="stat_low_stock">Low Stock Alerts</string>
+    <string name="stat_total_sales">Total Revenue</string>
+    <string name="quick_actions">Quick Actions</string>
+    <string name="btn_add_product">Add Product</string>
+    <string name="btn_process_return">Process Return</string>
+    <string name="recent_sales_title">Recent Sales History</string>
+
+    <!-- Product / Inventory -->
+    <string name="title_inventory">Product Catalog &amp; Inventory</string>
+    <string name="search_products">Search by name or SKU…</string>
+    <string name="no_products">No products found in inventory.</string>
+    <string name="stock_label">Stock: %1$d</string>
+    <string name="low_stock_badge">Low Stock</string>
+    <string name="price_format">$%1$.2f</string>
+    <string name="variant_info_format">%1$s | %2$s</string>
+
+    <!-- Add Product Screen -->
+    <string name="title_add_product">Add New Product</string>
+    <string name="product_info_section">Product Information</string>
+    <string name="variant_info_section">Initial Variant Details</string>
+    <string name="hint_product_name">Product Name *</string>
+    <string name="hint_product_sku">Product SKU / Code *</string>
+    <string name="hint_category">Category *</string>
+    <string name="hint_brand">Brand *</string>
+    <string name="hint_description">Description</string>
+    <string name="hint_image_url">Image URL (Optional)</string>
+
+    <string name="hint_variant_sku">Variant SKU *</string>
+    <string name="hint_size">Size (e.g. M, XL, 42)</string>
+    <string name="hint_color">Color (e.g. Blue, Black)</string>
+    <string name="hint_selling_price">Selling Price ($) *</string>
+    <string name="hint_purchase_price">Purchase Price ($) *</string>
+    <string name="hint_stock">Initial Stock Quantity *</string>
+
+    <string name="btn_save_product">Create Product</string>
+
+    <!-- Sales & Returns -->
+    <string name="title_sales">Sales History</string>
+    <string name="title_process_return">Process Customer Return</string>
+    <string name="no_sales">No sales history recorded yet.</string>
+    <string name="sale_number_label">Sale #%1$s</string>
+    <string name="customer_label">Customer: %1$s</string>
+    <string name="items_count_label">%1$d item(s)</string>
+    <string name="btn_return_item">Return Item</string>
+
+    <string name="return_form_subtitle">Restructure inventory by processing customer return requests</string>
+    <string name="hint_sale_id">Sale ID *</string>
+    <string name="hint_variant_id">Variant ID *</string>
+    <string name="hint_return_qty">Return Quantity *</string>
+    <string name="hint_return_reason">Reason for Return (e.g. Defective, Size issue)</string>
+    <string name="btn_submit_return">Submit &amp; Restore Inventory</string>
+    <string name="return_success_title">Return Processed Successfully!</string>
+    <string name="restored_qty_format">Restored %1$d items to active stock.</string>
+</resources>

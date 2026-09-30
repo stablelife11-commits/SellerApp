@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginVertical="3dp"
+    android:background="@drawable/bg_chip"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingHorizontal="12dp"
+    android:paddingVertical="8dp">
+
+    <!-- Size & Color Details -->
+    <TextView
+        android:id="@+id/tv_variant_attr"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="Size: M | Color: Black"
+        android:textColor="@color/text_primary"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+
+    <!-- Selling Price -->
+    <TextView
+        android:id="@+id/tv_variant_price"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="12dp"
+        android:text="$49.99"
+        android:textColor="@color/indigo_dark"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <!-- Live Stock Count Badge -->
+    <TextView
+        android:id="@+id/tv_variant_stock"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_badge_emerald"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="3dp"
+        android:text="Stock: 47"
+        android:textColor="@color/emerald_dark"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+</LinearLayout>
