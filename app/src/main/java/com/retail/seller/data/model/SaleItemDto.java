@@ -7,8 +7,15 @@ public class SaleItemDto {
     @SerializedName("id")
     private Long id;
 
+    @SerializedName("productId")
+    private Long productId;
+
     @SerializedName("variantId")
     private Long variantId;
+
+    // 🟢 NAYA: Backend se aane wala asli product name
+    @SerializedName("productName")
+    private String productName;
 
     @SerializedName("sku")
     private String sku;
@@ -16,22 +23,14 @@ public class SaleItemDto {
     @SerializedName("quantity")
     private Integer quantity;
 
-    @SerializedName("unitPrice")
-    private Double unitPrice;
+    // 🟢 NAYA: 'alternate' lagaya taaki agar backend 'price' bheje toh bhi pakad le
+    @SerializedName(value = "price", alternate = {"unitPrice"})
+    private Double price;
 
     @SerializedName("totalPrice")
     private Double totalPrice;
 
     public SaleItemDto() {
-    }
-
-    public SaleItemDto(Long id, Long variantId, String sku, Integer quantity, Double unitPrice, Double totalPrice) {
-        this.id = id;
-        this.variantId = variantId;
-        this.sku = sku;
-        this.quantity = quantity;
-        this.unitPrice = unitPrice;
-        this.totalPrice = totalPrice;
     }
 
     public Long getId() {
@@ -66,12 +65,24 @@ public class SaleItemDto {
         this.quantity = quantity;
     }
 
-    public Double getUnitPrice() {
-        return unitPrice != null ? unitPrice : 0.0;
+    // 🟢 NAYA: 'boolean' se badal kar 'String' kar diya
+    public String getProductName() {
+        if (productName != null && !productName.isEmpty()) {
+            return productName;
+        }
+        return sku != null ? sku : "Unknown Product";
     }
 
-    public void setUnitPrice(Double unitPrice) {
-        this.unitPrice = unitPrice;
+    public void setProductName(String productName) {
+        this.productName = productName;
+    }
+
+    public Double getPrice() {
+        return price != null ? price : 0.0;
+    }
+
+    public void setPrice(Double price) {
+        this.price = price;
     }
 
     public Double getTotalPrice() {
@@ -80,13 +91,5 @@ public class SaleItemDto {
 
     public void setTotalPrice(Double totalPrice) {
         this.totalPrice = totalPrice;
-    }
-
-    public String getVariantName() {
-        return getSku();
-    }
-
-    public Double getPrice() {
-        return getUnitPrice();
     }
 }

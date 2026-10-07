@@ -38,6 +38,9 @@ public interface ApiService {
     @GET("sales")
     Call<List<SaleResponseDto>> getSales();
 
+    @GET("orders/seller/{sellerId}")
+    Call<List<SaleResponseDto>> getSellerOrders(@Path("sellerId") Long sellerId);
+
     @POST("sales")
     Call<SaleResponseDto> createSale(@Body SaleRequestDto request);
 

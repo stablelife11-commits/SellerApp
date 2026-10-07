@@ -79,7 +79,7 @@ public class SalesFragment extends Fragment {
             salesProgress.setVisibility(View.VISIBLE);
         }
 
-        ApiClient.getApiService(requireContext()).getSales().enqueue(new Callback<List<SaleResponseDto>>() {
+        ApiClient.getApiService(requireContext()).getSellerOrders(1L).enqueue(new Callback<List<SaleResponseDto>>() {
             @Override
             public void onResponse(@NonNull Call<List<SaleResponseDto>> call, @NonNull Response<List<SaleResponseDto>> response) {
                 hideLoading();

@@ -1,5 +1,6 @@
 package com.retail.seller.ui.sales;
 
+import android.app.AlertDialog;
 import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -50,17 +51,42 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
         SaleResponseDto sale = sales.get(position);
 
         String saleNum = sale.getSaleNumber() != null ? sale.getSaleNumber() : String.valueOf(sale.getId());
-        holder.tvSaleNumber.setText(String.format(Locale.getDefault(), "Sale #%s", saleNum));
+
+        // 🟢 FIX 1: Sale की जगह Order लिख दिया है
+        holder.tvSaleNumber.setText(String.format(Locale.getDefault(), "Order #%s", saleNum));
 
         holder.tvSaleCustomer.setText(String.format(Locale.getDefault(), "Customer: %s",
                 sale.getCustomerName() != null ? sale.getCustomerName() : "Walk-in Customer"));
 
-        holder.tvSaleTotalAmount.setText(String.format(Locale.getDefault(), "$%.2f", sale.getTotalAmount()));
+        holder.tvSaleTotalAmount.setText(String.format(Locale.getDefault(), "₹%.2f", sale.getTotalAmount()));
 
         holder.tvSaleDate.setText(sale.getSaleDate() != null ? sale.getSaleDate() : "Recent");
 
         int itemCount = sale.getItems() != null ? sale.getItems().size() : 0;
         holder.tvSaleItemsCount.setText(String.format(Locale.getDefault(), "%d item(s)", itemCount));
+
+        // 🟢 FIX 2 & 3: कार्ड पर क्लिक करने पर डिटेल्स का पॉप-अप (Dialog) खुलेगा
+        holder.itemView.setOnClickListener(v -> {
+            StringBuilder details = new StringBuilder();
+            if (sale.getItems() != null && !sale.getItems().isEmpty()) {
+                // (नोट: अगर getProductName() की जगह आपके DTO में कोई और नाम है, तो उसे बदल लें)
+                for (int i = 0; i < sale.getItems().size(); i++) {
+                    details.append(i + 1).append(". ")
+                            .append(sale.getItems().get(i).getProductName()) // प्रोडक्ट का नाम
+                            .append("\n   Qty: ").append(sale.getItems().get(i).getQuantity()) // मात्रा
+                            .append(" | Price: ₹").append(sale.getItems().get(i).getPrice())
+                            .append("\n\n");
+                }
+            } else {
+                details.append("No items details found.");
+            }
+
+            new AlertDialog.Builder(context)
+                    .setTitle("Order Details - #" + saleNum)
+                    .setMessage(details.toString())
+                    .setPositiveButton("Close", null)
+                    .show();
+        });
 
         holder.btnCardReturn.setOnClickListener(v -> {
             if (returnClickListener != null) {
