@@ -10,6 +10,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.retail.seller.R;
+import com.retail.seller.data.model.SaleItemDto;
 import com.retail.seller.data.model.SaleResponseDto;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,18 +18,20 @@ import java.util.Locale;
 
 public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder> {
 
-    public interface OnReturnClickListener {
+    // 🟢 FIX: Interface me Accept Order ka action joda gaya
+    public interface OnOrderActionListener {
         void onReturnClick(SaleResponseDto sale);
+        void onAcceptOrderClick(SaleResponseDto sale);
     }
 
     private final Context context;
     private final List<SaleResponseDto> sales;
-    private final OnReturnClickListener returnClickListener;
+    private final OnOrderActionListener actionListener;
 
-    public SaleAdapter(Context context, List<SaleResponseDto> sales, OnReturnClickListener returnClickListener) {
+    public SaleAdapter(Context context, List<SaleResponseDto> sales, OnOrderActionListener actionListener) {
         this.context = context;
         this.sales = sales != null ? sales : new ArrayList<>();
-        this.returnClickListener = returnClickListener;
+        this.actionListener = actionListener;
     }
 
     public void updateSales(List<SaleResponseDto> newSales) {
@@ -51,46 +54,66 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
         SaleResponseDto sale = sales.get(position);
 
         String saleNum = sale.getSaleNumber() != null ? sale.getSaleNumber() : String.valueOf(sale.getId());
-
-        // 🟢 FIX 1: Sale की जगह Order लिख दिया है
         holder.tvSaleNumber.setText(String.format(Locale.getDefault(), "Order #%s", saleNum));
-
         holder.tvSaleCustomer.setText(String.format(Locale.getDefault(), "Customer: %s",
                 sale.getCustomerName() != null ? sale.getCustomerName() : "Walk-in Customer"));
-
         holder.tvSaleTotalAmount.setText(String.format(Locale.getDefault(), "₹%.2f", sale.getTotalAmount()));
-
         holder.tvSaleDate.setText(sale.getSaleDate() != null ? sale.getSaleDate() : "Recent");
 
         int itemCount = sale.getItems() != null ? sale.getItems().size() : 0;
         holder.tvSaleItemsCount.setText(String.format(Locale.getDefault(), "%d item(s)", itemCount));
 
-        // 🟢 FIX 2 & 3: कार्ड पर क्लिक करने पर डिटेल्स का पॉप-अप (Dialog) खुलेगा
+        // 🟢 INVOICE FORMAT POP-UP
         holder.itemView.setOnClickListener(v -> {
-            StringBuilder details = new StringBuilder();
+            StringBuilder invoice = new StringBuilder();
+
+            // Customer Details
+            invoice.append("👤 Customer Name: ").append(sale.getCustomerName()).append("\n");
+            invoice.append("📞 Mobile: ").append(sale.getCustomerMobile() != null ? sale.getCustomerMobile() : "N/A").append("\n");
+            invoice.append("📍 Address: ").append(sale.getDeliveryAddress() != null ? sale.getDeliveryAddress() : "N/A").append("\n");
+
+            // Status
+            String currentStatus = sale.getStatus() != null ? sale.getStatus() : "PLACED";
+            invoice.append("📌 Status: ").append(currentStatus).append("\n");
+            invoice.append("--------------------------------------------------\n");
+
+            // Order Items & Size
             if (sale.getItems() != null && !sale.getItems().isEmpty()) {
-                // (नोट: अगर getProductName() की जगह आपके DTO में कोई और नाम है, तो उसे बदल लें)
                 for (int i = 0; i < sale.getItems().size(); i++) {
-                    details.append(i + 1).append(". ")
-                            .append(sale.getItems().get(i).getProductName()) // प्रोडक्ट का नाम
-                            .append("\n   Qty: ").append(sale.getItems().get(i).getQuantity()) // मात्रा
-                            .append(" | Price: ₹").append(sale.getItems().get(i).getPrice())
-                            .append("\n\n");
+                    SaleItemDto item = sale.getItems().get(i);
+                    invoice.append(i + 1).append(". ").append(item.getProductName()).append("\n");
+
+                    String size = item.getSize() != null ? item.getSize() : "N/A";
+                    String color = item.getColor() != null ? item.getColor() : "N/A";
+                    invoice.append("   Size: ").append(size).append(" | Color: ").append(color).append("\n");
+                    invoice.append("   Qty: ").append(item.getQuantity()).append(" | Price: ₹").append(item.getPrice()).append("\n\n");
                 }
             } else {
-                details.append("No items details found.");
+                invoice.append("No items found.\n");
+            }
+            invoice.append("--------------------------------------------------\n");
+            invoice.append("💰 TOTAL PAYABLE: ₹").append(sale.getTotalAmount());
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(context)
+                    .setTitle("Invoice - Order #" + saleNum)
+                    .setMessage(invoice.toString());
+
+            // 🟢 Agar order naya hai (PLACED), toh 'Accept' ka button dikhao
+            if ("PLACED".equalsIgnoreCase(currentStatus)) {
+                builder.setPositiveButton("ACCEPT ORDER", (dialog, which) -> {
+                    if (actionListener != null) actionListener.onAcceptOrderClick(sale);
+                });
+                builder.setNegativeButton("Close", null);
+            } else {
+                builder.setPositiveButton("Close", null);
             }
 
-            new AlertDialog.Builder(context)
-                    .setTitle("Order Details - #" + saleNum)
-                    .setMessage(details.toString())
-                    .setPositiveButton("Close", null)
-                    .show();
+            builder.show();
         });
 
         holder.btnCardReturn.setOnClickListener(v -> {
-            if (returnClickListener != null) {
-                returnClickListener.onReturnClick(sale);
+            if (actionListener != null) {
+                actionListener.onReturnClick(sale);
             }
         });
     }
@@ -101,11 +124,7 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
     }
 
     static class SaleViewHolder extends RecyclerView.ViewHolder {
-        TextView tvSaleNumber;
-        TextView tvSaleCustomer;
-        TextView tvSaleTotalAmount;
-        TextView tvSaleDate;
-        TextView tvSaleItemsCount;
+        TextView tvSaleNumber, tvSaleCustomer, tvSaleTotalAmount, tvSaleDate, tvSaleItemsCount;
         Button btnCardReturn;
 
         public SaleViewHolder(@NonNull View itemView) {

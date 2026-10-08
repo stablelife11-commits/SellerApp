@@ -18,7 +18,20 @@ public class SaleResponseDto {
     @SerializedName("customerName")
     private String customerName;
 
-    @SerializedName("saleDate")
+    // 🟢 NAYA: Customer ka Mobile Number (Invoice ke liye)
+    @SerializedName("customerMobile")
+    private String customerMobile;
+
+    // 🟢 NAYA: Delivery Address (Invoice ke liye)
+    @SerializedName("deliveryAddress")
+    private String deliveryAddress;
+
+    // 🟢 NAYA: Order ka Status (PLACED / CONFIRMED)
+    @SerializedName("status")
+    private String status;
+
+    // 🟢 FIX: Backend ab 'orderDate' bhejta hai, toh 'alternate' lagana zaruri hai
+    @SerializedName(value = "saleDate", alternate = {"orderDate"})
     private String saleDate;
 
     @SerializedName("totalAmount")
@@ -31,69 +44,16 @@ public class SaleResponseDto {
         this.items = new ArrayList<>();
     }
 
-    public SaleResponseDto(Long id, String saleNumber, Long customerId, String customerName, String saleDate, Double totalAmount, List<SaleItemDto> items) {
-        this.id = id;
-        this.saleNumber = saleNumber;
-        this.customerId = customerId;
-        this.customerName = customerName;
-        this.saleDate = saleDate;
-        this.totalAmount = totalAmount;
-        this.items = items != null ? items : new ArrayList<>();
-    }
+    public Long getId() { return id; }
+    public String getSaleNumber() { return saleNumber; }
+    public Long getCustomerId() { return customerId; }
+    public String getCustomerName() { return customerName; }
 
-    public Long getId() {
-        return id;
-    }
+    public String getCustomerMobile() { return customerMobile; } // 🟢 Naya Getter
+    public String getDeliveryAddress() { return deliveryAddress; } // 🟢 Naya Getter
+    public String getStatus() { return status; } // 🟢 Naya Getter
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getSaleNumber() {
-        return saleNumber;
-    }
-
-    public void setSaleNumber(String saleNumber) {
-        this.saleNumber = saleNumber;
-    }
-
-    public Long getCustomerId() {
-        return customerId;
-    }
-
-    public void setCustomerId(Long customerId) {
-        this.customerId = customerId;
-    }
-
-    public String getCustomerName() {
-        return customerName;
-    }
-
-    public void setCustomerName(String customerName) {
-        this.customerName = customerName;
-    }
-
-    public String getSaleDate() {
-        return saleDate;
-    }
-
-    public void setSaleDate(String saleDate) {
-        this.saleDate = saleDate;
-    }
-
-    public Double getTotalAmount() {
-        return totalAmount != null ? totalAmount : 0.0;
-    }
-
-    public void setTotalAmount(Double totalAmount) {
-        this.totalAmount = totalAmount;
-    }
-
-    public List<SaleItemDto> getItems() {
-        return items != null ? items : new ArrayList<>();
-    }
-
-    public void setItems(List<SaleItemDto> items) {
-        this.items = items;
-    }
+    public String getSaleDate() { return saleDate; }
+    public Double getTotalAmount() { return totalAmount != null ? totalAmount : 0.0; }
+    public List<SaleItemDto> getItems() { return items != null ? items : new ArrayList<>(); }
 }

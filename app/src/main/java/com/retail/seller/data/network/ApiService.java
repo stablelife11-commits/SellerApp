@@ -41,6 +41,10 @@ public interface ApiService {
     @GET("orders/seller/{sellerId}")
     Call<List<SaleResponseDto>> getSellerOrders(@Path("sellerId") Long sellerId);
 
+    // 🟢 NAYA: Order Confirm karne ka API
+    @PATCH("orders/{id}/status")
+    Call<SaleResponseDto> updateOrderStatus(@Path("id") Long id, @retrofit2.http.Query("status") String status);
+
     @POST("sales")
     Call<SaleResponseDto> createSale(@Body SaleRequestDto request);
 
