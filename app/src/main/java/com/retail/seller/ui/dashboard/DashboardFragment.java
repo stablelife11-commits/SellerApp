@@ -12,8 +12,10 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.google.android.material.button.MaterialButton;
 import com.retail.seller.R;
+import com.retail.seller.data.model.DashboardSummaryDto;
 import com.retail.seller.data.model.ProductResponseDto;
 import com.retail.seller.data.model.ProductVariantDto;
 import com.retail.seller.data.model.SaleResponseDto;
@@ -31,9 +33,11 @@ import retrofit2.Response;
 
 public class DashboardFragment extends Fragment {
 
+    private SwipeRefreshLayout swipeRefreshDashboard;
     private TextView tvActiveProductsCount;
     private TextView tvLowStockCount;
     private TextView tvTotalRevenue;
+    private TextView tvRevenueBreakdown;
     private TextView tvWelcomeTitle;
     private TextView tvUserEmail;
     private LinearLayout layoutRecentSalesContainer;
@@ -52,11 +56,13 @@ public class DashboardFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        swipeRefreshDashboard = view.findViewById(R.id.swipe_refresh_dashboard);
         tvWelcomeTitle = view.findViewById(R.id.tv_welcome_title);
         tvUserEmail = view.findViewById(R.id.tv_user_email);
         tvActiveProductsCount = view.findViewById(R.id.tv_active_products_count);
         tvLowStockCount = view.findViewById(R.id.tv_low_stock_count);
         tvTotalRevenue = view.findViewById(R.id.tv_total_revenue);
+        tvRevenueBreakdown = view.findViewById(R.id.tv_revenue_breakdown);
         layoutRecentSalesContainer = view.findViewById(R.id.layout_recent_sales_container);
         dashboardProgress = view.findViewById(R.id.dashboard_progress);
 
@@ -69,8 +75,10 @@ public class DashboardFragment extends Fragment {
             tvWelcomeTitle.setText("Welcome, " + tokenManager.getName() + "!");
         }
         if (tokenManager.getEmail() != null && !tokenManager.getEmail().isEmpty()) {
-            tvUserEmail.setText(tokenManager.getEmail());
+            tvUserEmail.setText(tokenManager.getEmail() + " • " + tokenManager.getRole());
         }
+
+        swipeRefreshDashboard.setOnRefreshListener(this::loadDashboardData);
 
         btnLogout.setOnClickListener(v -> {
             tokenManager.clearSession();
@@ -100,12 +108,38 @@ public class DashboardFragment extends Fragment {
     }
 
     private void loadDashboardData() {
-        if (dashboardProgress != null) dashboardProgress.setVisibility(View.VISIBLE);
+        if (!isAdded()) return;
+        if (!swipeRefreshDashboard.isRefreshing() && dashboardProgress != null) {
+            dashboardProgress.setVisibility(View.VISIBLE);
+        }
 
-        // Fetch products for stats calculation directly from live backend
-        ApiClient.getApiService(requireContext()).getProducts().enqueue(new Callback<List<ProductResponseDto>>() {
+        // 1. Fetch authoritative financial summary from /api/v1/reports/dashboard-summary
+        ApiClient.getApiService(requireContext()).getDashboardSummary().enqueue(new Callback<DashboardSummaryDto>() {
+            @Override
+            public void onResponse(@NonNull Call<DashboardSummaryDto> call, @NonNull Response<DashboardSummaryDto> response) {
+                if (!isAdded()) return;
+                if (response.isSuccessful() && response.body() != null) {
+                    DashboardSummaryDto summary = response.body();
+                    tvTotalRevenue.setText(String.format(Locale.getDefault(), "₹%.2f", summary.getTotalSalesAmount()));
+                    tvRevenueBreakdown.setText(String.format(Locale.getDefault(),
+                            "Online Delivered: ₹%.2f | POS: ₹%.2f | Returns: ₹%.2f | Customers: %d",
+                            summary.getOnlineOrderSalesAmount(),
+                            summary.getPosSalesAmount(),
+                            summary.getTotalReturnsAmount(),
+                            summary.getTotalCustomers()));
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<DashboardSummaryDto> call, @NonNull Throwable t) {
+            }
+        });
+
+        // 2. Fetch Seller's own catalog for Active Products & Low Stock counts
+        ApiClient.getApiService(requireContext()).getMyProducts(0, 100).enqueue(new Callback<List<ProductResponseDto>>() {
             @Override
             public void onResponse(@NonNull Call<List<ProductResponseDto>> call, @NonNull Response<List<ProductResponseDto>> response) {
+                if (!isAdded()) return;
                 if (response.isSuccessful() && response.body() != null) {
                     updateProductStats(response.body());
                 } else {
@@ -115,36 +149,58 @@ public class DashboardFragment extends Fragment {
 
             @Override
             public void onFailure(@NonNull Call<List<ProductResponseDto>> call, @NonNull Throwable t) {
+                if (!isAdded()) return;
                 updateProductStats(Collections.emptyList());
             }
         });
 
-        // Fetch sales for revenue and recent sales list directly from live backend
-        ApiClient.getApiService(requireContext()).getSales().enqueue(new Callback<List<SaleResponseDto>>() {
+        // 3. Fetch Seller's Recent Buyer Orders using actual authenticated userId
+        TokenManager tm = TokenManager.getInstance(requireContext());
+        Long sellerId = tm.getUserId();
+        if (sellerId == null) {
+            hideLoading();
+            return;
+        }
+
+        Call<List<SaleResponseDto>> ordersCall = tm.isAdmin()
+                ? ApiClient.getApiService(requireContext()).getAllOrdersForAdmin(0, 10)
+                : ApiClient.getApiService(requireContext()).getSellerOrders(sellerId, 0, 10);
+
+        ordersCall.enqueue(new Callback<List<SaleResponseDto>>() {
             @Override
             public void onResponse(@NonNull Call<List<SaleResponseDto>> call, @NonNull Response<List<SaleResponseDto>> response) {
-                if (dashboardProgress != null) dashboardProgress.setVisibility(View.GONE);
+                if (!isAdded()) return;
+                hideLoading();
                 if (response.isSuccessful() && response.body() != null) {
-                    updateSalesStatsAndList(response.body());
+                    updateRecentOrdersList(response.body());
                 } else {
-                    updateSalesStatsAndList(Collections.emptyList());
+                    updateRecentOrdersList(Collections.emptyList());
                 }
             }
 
             @Override
             public void onFailure(@NonNull Call<List<SaleResponseDto>> call, @NonNull Throwable t) {
-                if (dashboardProgress != null) dashboardProgress.setVisibility(View.GONE);
-                updateSalesStatsAndList(Collections.emptyList());
+                if (!isAdded()) return;
+                hideLoading();
+                updateRecentOrdersList(Collections.emptyList());
             }
         });
     }
 
+    private void hideLoading() {
+        if (swipeRefreshDashboard != null) swipeRefreshDashboard.setRefreshing(false);
+        if (dashboardProgress != null) dashboardProgress.setVisibility(View.GONE);
+    }
+
     private void updateProductStats(List<ProductResponseDto> products) {
         if (products == null) return;
-        int activeProducts = products.size();
+        int activeProducts = 0;
         int lowStockCount = 0;
 
         for (ProductResponseDto product : products) {
+            if (Boolean.TRUE.equals(product.getActive())) {
+                activeProducts++;
+            }
             if (product.getVariants() != null) {
                 for (ProductVariantDto variant : product.getVariants()) {
                     if (variant.getStock() < 10) {
@@ -162,49 +218,57 @@ public class DashboardFragment extends Fragment {
         }
     }
 
-    private void updateSalesStatsAndList(List<SaleResponseDto> sales) {
-        if (sales == null || getContext() == null) return;
-
-        double totalRevenue = 0.0;
-        for (SaleResponseDto sale : sales) {
-            totalRevenue += sale.getTotalAmount();
-        }
-
-        if (tvTotalRevenue != null) {
-            tvTotalRevenue.setText(String.format(Locale.getDefault(), "$%.2f", totalRevenue));
-        }
+    private void updateRecentOrdersList(List<SaleResponseDto> orders) {
+        if (orders == null || getContext() == null) return;
 
         layoutRecentSalesContainer.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(getContext());
 
+        if (orders.isEmpty()) {
+            TextView emptyTv = new TextView(getContext());
+            emptyTv.setText("No buyer orders received yet.");
+            emptyTv.setPadding(8, 16, 8, 16);
+            layoutRecentSalesContainer.addView(emptyTv);
+            return;
+        }
+
         int count = 0;
-        for (SaleResponseDto sale : sales) {
-            if (count >= 3) break; // Display top 3 recent sales
+        for (SaleResponseDto order : orders) {
+            if (count >= 5) break;
 
-            View saleCardView = inflater.inflate(R.layout.item_sale_card, layoutRecentSalesContainer, false);
-            TextView tvSaleNumber = saleCardView.findViewById(R.id.tv_sale_number);
-            TextView tvSaleCustomer = saleCardView.findViewById(R.id.tv_sale_customer);
-            TextView tvSaleTotalAmount = saleCardView.findViewById(R.id.tv_sale_total_amount);
-            TextView tvSaleDate = saleCardView.findViewById(R.id.tv_sale_date);
-            TextView tvSaleItemsCount = saleCardView.findViewById(R.id.tv_sale_items_count);
-            MaterialButton btnCardReturn = saleCardView.findViewById(R.id.btn_card_return);
+            View cardView = inflater.inflate(R.layout.item_sale_card, layoutRecentSalesContainer, false);
+            TextView tvSaleNumber = cardView.findViewById(R.id.tv_sale_number);
+            TextView tvSaleCustomer = cardView.findViewById(R.id.tv_sale_customer);
+            TextView tvSaleTotalAmount = cardView.findViewById(R.id.tv_sale_total_amount);
+            TextView tvSaleDate = cardView.findViewById(R.id.tv_sale_date);
+            TextView tvSaleItemsCount = cardView.findViewById(R.id.tv_sale_items_count);
+            MaterialButton btnCardReturn = cardView.findViewById(R.id.btn_card_return);
 
-            String saleNum = sale.getSaleNumber() != null ? sale.getSaleNumber() : String.valueOf(sale.getId());
-            tvSaleNumber.setText(String.format(Locale.getDefault(), "Sale #%s", saleNum));
-            tvSaleCustomer.setText(String.format(Locale.getDefault(), "Customer: %s",
-                    sale.getCustomerName() != null ? sale.getCustomerName() : "Walk-in Customer"));
-            tvSaleTotalAmount.setText(String.format(Locale.getDefault(), "$%.2f", sale.getTotalAmount()));
-            tvSaleDate.setText(sale.getSaleDate() != null ? sale.getSaleDate() : "Recent");
-            int itemsCount = sale.getItems() != null ? sale.getItems().size() : 0;
+            String status = order.getStatus();
+            tvSaleNumber.setText(String.format(Locale.getDefault(), "Order #%d • %s", order.getId(), status));
+            tvSaleCustomer.setText(String.format(Locale.getDefault(), "Buyer: %s (%s)",
+                    order.getCustomerName() != null ? order.getCustomerName() : "Buyer",
+                    order.getCustomerMobile() != null ? order.getCustomerMobile() : "N/A"));
+            tvSaleTotalAmount.setText(String.format(Locale.getDefault(), "₹%.2f", order.getTotalAmount()));
+            tvSaleDate.setText(order.getSaleDate() != null ? order.getSaleDate().replace("T", " ") : "Recent");
+            int itemsCount = order.getItems() != null ? order.getItems().size() : 0;
             tvSaleItemsCount.setText(String.format(Locale.getDefault(), "%d item(s)", itemsCount));
 
-            btnCardReturn.setOnClickListener(v -> {
-                Intent intent = new Intent(requireContext(), ReturnProcessActivity.class);
-                intent.putExtra("EXTRA_SALE_ID", sale.getId());
-                startActivity(intent);
-            });
+            if ("DELIVERED".equalsIgnoreCase(status)) {
+                btnCardReturn.setVisibility(View.VISIBLE);
+                btnCardReturn.setOnClickListener(v -> {
+                    Intent intent = new Intent(requireContext(), ReturnProcessActivity.class);
+                    intent.putExtra("EXTRA_ORDER_ID", order.getId());
+                    if (order.getItems() != null && !order.getItems().isEmpty()) {
+                        intent.putExtra("EXTRA_VARIANT_ID", order.getItems().get(0).getVariantId());
+                    }
+                    startActivity(intent);
+                });
+            } else {
+                btnCardReturn.setVisibility(View.GONE);
+            }
 
-            layoutRecentSalesContainer.addView(saleCardView);
+            layoutRecentSalesContainer.addView(cardView);
             count++;
         }
     }

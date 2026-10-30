@@ -13,12 +13,31 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <!-- Top Header: Product Name & Category Chip -->
+        <!-- Top Header: Product Thumbnail, Name & Category Chip -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
             android:orientation="horizontal">
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_marginEnd="12dp"
+                app:cardBackgroundColor="@color/indigo_50"
+                app:cardCornerRadius="10dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/card_stroke"
+                app:strokeWidth="1dp">
+
+                <ImageView
+                    android:id="@+id/iv_product_thumb"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="Product Thumbnail"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_box" />
+            </com.google.android.material.card.MaterialCardView>
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -32,7 +51,7 @@
                     android:layout_height="wrap_content"
                     android:text="Product Name"
                     android:textColor="@color/text_primary"
-                    android:textSize="17sp"
+                    android:textSize="16sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -40,12 +59,11 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="SKU: PROD-100 | Nike"
+                    android:text="Code: PROD-100 | Brand"
                     android:textColor="@color/text_secondary"
                     android:textSize="12sp" />
             </LinearLayout>
 
-            <!-- Category Tag -->
             <TextView
                 android:id="@+id/tv_category_tag"
                 android:layout_width="wrap_content"
@@ -65,25 +83,43 @@
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:layout_marginTop="12dp"
-            android:layout_marginBottom="12dp"
+            android:layout_marginBottom="10dp"
             android:background="@color/card_stroke" />
 
-        <!-- Variants Section Header with Update Stock Button -->
+        <!-- Action Buttons Row: Edit, Toggle Active/Inactive, Update Stock -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
             android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:layout_marginBottom="8dp">
+            android:orientation="horizontal">
 
-            <TextView
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_edit_product"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="0dp"
+                android:text="Edit"
+                android:textColor="@color/indigo_primary"
+                android:textSize="12sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_toggle_product_status"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="0dp"
+                android:text="Deactivate"
+                android:textColor="@color/warning_red"
+                android:textSize="12sp" />
+
+            <View
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Variants &amp; Live Stock"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp"
-                android:textStyle="bold" />
+                android:layout_height="1dp"
+                android:layout_weight="1" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_update_stock"
@@ -105,7 +141,7 @@
 
         </LinearLayout>
 
-        <!-- Variants Horizontal / Vertical List Container -->
+        <!-- Variants List -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rv_variants"
             android:layout_width="match_parent"

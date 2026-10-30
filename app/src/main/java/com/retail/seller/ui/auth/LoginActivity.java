@@ -3,6 +3,7 @@ package com.retail.seller.ui.auth;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Patterns;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.Toast;
@@ -32,7 +33,6 @@ public class LoginActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Check if already authenticated
         if (TokenManager.getInstance(this).isLoggedIn()) {
             navigateToMain();
             return;
@@ -58,7 +58,12 @@ public class LoginActivity extends AppCompatActivity {
         tilPassword.setError(null);
 
         if (TextUtils.isEmpty(email)) {
-            tilEmail.setError("Email or Username is required");
+            tilEmail.setError("Email is required");
+            etEmail.requestFocus();
+            return;
+        }
+        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            tilEmail.setError("Enter a valid email address");
             etEmail.requestFocus();
             return;
         }
@@ -77,14 +82,22 @@ public class LoginActivity extends AppCompatActivity {
             public void onResponse(@NonNull Call<AuthResponseDto> call, @NonNull Response<AuthResponseDto> response) {
                 setLoading(false);
                 if (response.isSuccessful() && response.body() != null && response.body().getToken() != null) {
-                    TokenManager.getInstance(LoginActivity.this).saveSession(response.body());
-                    Toast.makeText(LoginActivity.this, "Login successful!", Toast.LENGTH_SHORT).show();
+                    AuthResponseDto auth = response.body();
+                    String role = auth.getRole() != null ? auth.getRole().trim().toUpperCase() : "";
+
+                    // Enforce Seller/Admin role check on Seller App
+                    if (!"SELLER".equals(role) && !"ADMIN".equals(role)) {
+                        Toast.makeText(LoginActivity.this,
+                                "Access Denied: This account has role '" + role + "'. Only SELLER or ADMIN accounts can use the Seller App.",
+                                Toast.LENGTH_LONG).show();
+                        return;
+                    }
+
+                    TokenManager.getInstance(LoginActivity.this).saveSession(auth);
+                    Toast.makeText(LoginActivity.this, "Welcome, " + auth.getName() + "!", Toast.LENGTH_SHORT).show();
                     navigateToMain();
                 } else {
-                    String errorMsg = "Login failed (Code " + response.code() + "). Please check your credentials.";
-                    if (response.code() == 403 || response.code() == 401) {
-                        errorMsg = "Invalid email/username or password. Access forbidden (403).";
-                    }
+                    String errorMsg = ApiClient.extractErrorMessage(response, "Invalid email or password");
                     Toast.makeText(LoginActivity.this, errorMsg, Toast.LENGTH_LONG).show();
                 }
             }
@@ -92,7 +105,9 @@ public class LoginActivity extends AppCompatActivity {
             @Override
             public void onFailure(@NonNull Call<AuthResponseDto> call, @NonNull Throwable t) {
                 setLoading(false);
-                Toast.makeText(LoginActivity.this, "Network error connecting to backend: " + t.getLocalizedMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(LoginActivity.this,
+                        "Cannot connect to server. Verify backend is running and IP matches ApiClient: " + t.getLocalizedMessage(),
+                        Toast.LENGTH_LONG).show();
             }
         });
     }

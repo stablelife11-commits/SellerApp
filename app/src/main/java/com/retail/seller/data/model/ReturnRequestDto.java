@@ -9,6 +9,9 @@ public class ReturnRequestDto {
     @SerializedName("saleId")
     private Long saleId;
 
+    @SerializedName("orderId")
+    private Long orderId;
+
     @SerializedName("reason")
     private String reason;
 
@@ -25,12 +28,36 @@ public class ReturnRequestDto {
         this.items = items != null ? items : new ArrayList<>();
     }
 
+    public static ReturnRequestDto forOnlineOrder(Long orderId, String reason, List<ReturnItemRequestDto> items) {
+        ReturnRequestDto dto = new ReturnRequestDto();
+        dto.setOrderId(orderId);
+        dto.setReason(reason);
+        dto.setItems(items != null ? items : new ArrayList<>());
+        return dto;
+    }
+
+    public static ReturnRequestDto forPosSale(Long saleId, String reason, List<ReturnItemRequestDto> items) {
+        ReturnRequestDto dto = new ReturnRequestDto();
+        dto.setSaleId(saleId);
+        dto.setReason(reason);
+        dto.setItems(items != null ? items : new ArrayList<>());
+        return dto;
+    }
+
     public Long getSaleId() {
         return saleId;
     }
 
     public void setSaleId(Long saleId) {
         this.saleId = saleId;
+    }
+
+    public Long getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(Long orderId) {
+        this.orderId = orderId;
     }
 
     public String getReason() {

@@ -73,13 +73,46 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <!-- Sale ID -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="6dp"
+                        android:text="Transaction Source *"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <RadioGroup
+                        android:id="@+id/rg_return_type"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        android:orientation="horizontal">
+
+                        <RadioButton
+                            android:id="@+id/rb_return_online_order"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:checked="true"
+                            android:text="Online Order ID" />
+
+                        <RadioButton
+                            android:id="@+id/rb_return_pos_sale"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="POS Sale ID" />
+                    </RadioGroup>
+
+                    <!-- Order ID or Sale ID -->
                     <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/til_return_sale_id"
                         style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="12dp"
-                        android:hint="@string/hint_sale_id">
+                        android:hint="Delivered Online Order ID *">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/et_return_sale_id"
@@ -150,8 +183,8 @@
                     android:textAllCaps="false"
                     android:textSize="16sp"
                     android:textStyle="bold"
-                    app:cornerRadius="12dp"
-                    app:backgroundTint="@color/indigo_primary" />
+                    app:backgroundTint="@color/indigo_primary"
+                    app:cornerRadius="12dp" />
 
                 <ProgressBar
                     android:id="@+id/return_progress"
@@ -174,22 +207,22 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
                     android:gravity="center_vertical"
+                    android:orientation="horizontal"
                     android:padding="16dp">
 
                     <ImageView
                         android:layout_width="36dp"
                         android:layout_height="36dp"
+                        android:contentDescription="Success"
                         android:src="@drawable/ic_check_circle"
-                        app:tint="@color/emerald_dark"
-                        android:contentDescription="Success" />
+                        app:tint="@color/emerald_dark" />
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
                         android:layout_marginStart="14dp"
+                        android:layout_weight="1"
                         android:orientation="vertical">
 
                         <TextView

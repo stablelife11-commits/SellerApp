@@ -4,6 +4,8 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.ProgressBar;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -12,6 +14,7 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 import com.retail.seller.R;
 import com.retail.seller.data.model.ReturnItemRequestDto;
 import com.retail.seller.data.model.ReturnRequestDto;
@@ -25,6 +28,9 @@ import retrofit2.Response;
 
 public class ReturnProcessActivity extends AppCompatActivity {
 
+    private RadioGroup rgReturnType;
+    private RadioButton rbOnlineOrder, rbPosSale;
+    private TextInputLayout tilReferenceId;
     private TextInputEditText etSaleId, etVariantId, etQuantity, etReason;
     private MaterialButton btnSubmit;
     private ProgressBar progressBar;
@@ -44,6 +50,11 @@ public class ReturnProcessActivity extends AppCompatActivity {
         }
         toolbar.setNavigationOnClickListener(v -> finish());
 
+        rgReturnType = findViewById(R.id.rg_return_type);
+        rbOnlineOrder = findViewById(R.id.rb_return_online_order);
+        rbPosSale = findViewById(R.id.rb_return_pos_sale);
+        tilReferenceId = findViewById(R.id.til_return_sale_id);
+
         etSaleId = findViewById(R.id.et_return_sale_id);
         etVariantId = findViewById(R.id.et_return_variant_id);
         etQuantity = findViewById(R.id.et_return_quantity);
@@ -54,10 +65,34 @@ public class ReturnProcessActivity extends AppCompatActivity {
         cardSuccessResult = findViewById(R.id.card_return_success_result);
         tvResultDetails = findViewById(R.id.tv_return_result_details);
 
-        if (getIntent() != null && getIntent().hasExtra("EXTRA_SALE_ID")) {
-            long saleId = getIntent().getLongExtra("EXTRA_SALE_ID", 0);
-            if (saleId > 0) {
-                etSaleId.setText(String.valueOf(saleId));
+        rgReturnType.setOnCheckedChangeListener((group, checkedId) -> {
+            if (checkedId == R.id.rb_return_online_order) {
+                tilReferenceId.setHint("Delivered Online Order ID *");
+            } else {
+                tilReferenceId.setHint("POS Sale ID *");
+            }
+        });
+
+        if (getIntent() != null) {
+            if (getIntent().hasExtra("EXTRA_ORDER_ID")) {
+                long orderId = getIntent().getLongExtra("EXTRA_ORDER_ID", 0);
+                if (orderId > 0) {
+                    rbOnlineOrder.setChecked(true);
+                    etSaleId.setText(String.valueOf(orderId));
+                }
+            } else if (getIntent().hasExtra("EXTRA_SALE_ID")) {
+                long saleId = getIntent().getLongExtra("EXTRA_SALE_ID", 0);
+                if (saleId > 0) {
+                    rbPosSale.setChecked(true);
+                    etSaleId.setText(String.valueOf(saleId));
+                }
+            }
+
+            if (getIntent().hasExtra("EXTRA_VARIANT_ID")) {
+                long variantId = getIntent().getLongExtra("EXTRA_VARIANT_ID", 0);
+                if (variantId > 0) {
+                    etVariantId.setText(String.valueOf(variantId));
+                }
             }
         }
 
@@ -65,13 +100,15 @@ public class ReturnProcessActivity extends AppCompatActivity {
     }
 
     private void attemptSubmitReturn() {
-        String saleIdStr = etSaleId.getText() != null ? etSaleId.getText().toString().trim() : "";
+        String refIdStr = etSaleId.getText() != null ? etSaleId.getText().toString().trim() : "";
         String variantIdStr = etVariantId.getText() != null ? etVariantId.getText().toString().trim() : "";
         String qtyStr = etQuantity.getText() != null ? etQuantity.getText().toString().trim() : "";
         String reason = etReason.getText() != null ? etReason.getText().toString().trim() : "";
 
-        if (TextUtils.isEmpty(saleIdStr)) {
-            etSaleId.setError("Sale ID is required");
+        boolean isOnlineOrder = rbOnlineOrder.isChecked();
+
+        if (TextUtils.isEmpty(refIdStr)) {
+            etSaleId.setError((isOnlineOrder ? "Order ID" : "Sale ID") + " is required");
             etSaleId.requestFocus();
             return;
         }
@@ -86,14 +123,30 @@ public class ReturnProcessActivity extends AppCompatActivity {
             return;
         }
 
-        long saleId = Long.parseLong(saleIdStr);
-        long variantId = Long.parseLong(variantIdStr);
-        int quantity = Integer.parseInt(qtyStr);
+        long referenceId;
+        long variantId;
+        int quantity;
+        try {
+            referenceId = Long.parseLong(refIdStr);
+            variantId = Long.parseLong(variantIdStr);
+            quantity = Integer.parseInt(qtyStr);
+        } catch (NumberFormatException ex) {
+            Toast.makeText(this, "Please enter valid numeric IDs and quantity.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (quantity < 1) {
+            etQuantity.setError("Quantity must be at least 1");
+            return;
+        }
 
         ReturnItemRequestDto returnItem = new ReturnItemRequestDto(variantId, quantity);
-        ReturnRequestDto request = new ReturnRequestDto(saleId, reason, Collections.singletonList(returnItem));
+        ReturnRequestDto request = isOnlineOrder
+                ? ReturnRequestDto.forOnlineOrder(referenceId, reason, Collections.singletonList(returnItem))
+                : ReturnRequestDto.forPosSale(referenceId, reason, Collections.singletonList(returnItem));
 
         setLoading(true);
+        cardSuccessResult.setVisibility(View.GONE);
 
         ApiClient.getApiService(this).processReturn(request).enqueue(new Callback<ReturnResponseDto>() {
             @Override
@@ -102,7 +155,8 @@ public class ReturnProcessActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null) {
                     showSuccessResult(response.body());
                 } else {
-                    Toast.makeText(ReturnProcessActivity.this, "Server error processing return: Code " + response.code(), Toast.LENGTH_LONG).show();
+                    String errorMsg = ApiClient.extractErrorMessage(response, "Failed to process return");
+                    Toast.makeText(ReturnProcessActivity.this, errorMsg, Toast.LENGTH_LONG).show();
                 }
             }
 
@@ -116,15 +170,21 @@ public class ReturnProcessActivity extends AppCompatActivity {
 
     private void showSuccessResult(ReturnResponseDto response) {
         if (cardSuccessResult != null && tvResultDetails != null) {
+            String refLabel = response.getOrderId() != null
+                    ? "Order ID: #" + response.getOrderId()
+                    : "Sale ID: #" + response.getSaleId();
+
             String details = String.format(Locale.getDefault(),
-                    "Return ID: %d | Sale ID: %d\nReason: %s",
+                    "Return #%d | %s\nRestored Qty: %d | Refund Value: ₹%.2f\nReason: %s",
                     response.getId() != null ? response.getId() : 0,
-                    response.getSaleId() != null ? response.getSaleId() : 0,
+                    refLabel,
+                    response.getQuantityRestored(),
+                    response.getTotalReturnAmount(),
                     response.getReason() != null ? response.getReason() : "N/A");
             tvResultDetails.setText(details);
             cardSuccessResult.setVisibility(View.VISIBLE);
         }
-        Toast.makeText(this, "Customer return processed on server!", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "Return processed & inventory restored!", Toast.LENGTH_LONG).show();
     }
 
     private void setLoading(boolean isLoading) {

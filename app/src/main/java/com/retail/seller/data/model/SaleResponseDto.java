@@ -9,6 +9,9 @@ public class SaleResponseDto {
     @SerializedName("id")
     private Long id;
 
+    @SerializedName("sellerId")
+    private Long sellerId;
+
     @SerializedName("saleNumber")
     private String saleNumber;
 
@@ -18,24 +21,26 @@ public class SaleResponseDto {
     @SerializedName("customerName")
     private String customerName;
 
-    // 🟢 NAYA: Customer ka Mobile Number (Invoice ke liye)
     @SerializedName("customerMobile")
     private String customerMobile;
 
-    // 🟢 NAYA: Delivery Address (Invoice ke liye)
     @SerializedName("deliveryAddress")
     private String deliveryAddress;
 
-    // 🟢 NAYA: Order ka Status (PLACED / CONFIRMED)
     @SerializedName("status")
     private String status;
 
-    // 🟢 FIX: Backend ab 'orderDate' bhejta hai, toh 'alternate' lagana zaruri hai
     @SerializedName(value = "saleDate", alternate = {"orderDate"})
     private String saleDate;
 
     @SerializedName("totalAmount")
     private Double totalAmount;
+
+    @SerializedName("paidAmount")
+    private Double paidAmount;
+
+    @SerializedName("paymentStatus")
+    private String paymentStatus;
 
     @SerializedName("items")
     private List<SaleItemDto> items;
@@ -44,16 +49,55 @@ public class SaleResponseDto {
         this.items = new ArrayList<>();
     }
 
-    public Long getId() { return id; }
-    public String getSaleNumber() { return saleNumber; }
-    public Long getCustomerId() { return customerId; }
-    public String getCustomerName() { return customerName; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getCustomerMobile() { return customerMobile; } // 🟢 Naya Getter
-    public String getDeliveryAddress() { return deliveryAddress; } // 🟢 Naya Getter
-    public String getStatus() { return status; } // 🟢 Naya Getter
+    public Long getSellerId() {
+        return sellerId;
+    }
 
-    public String getSaleDate() { return saleDate; }
-    public Double getTotalAmount() { return totalAmount != null ? totalAmount : 0.0; }
-    public List<SaleItemDto> getItems() { return items != null ? items : new ArrayList<>(); }
+    public String getSaleNumber() {
+        return saleNumber;
+    }
+
+    public Long getCustomerId() {
+        return customerId;
+    }
+
+    public String getCustomerName() {
+        return customerName;
+    }
+
+    public String getCustomerMobile() {
+        return customerMobile;
+    }
+
+    public String getDeliveryAddress() {
+        return deliveryAddress;
+    }
+
+    public String getStatus() {
+        return status != null ? status : "PLACED";
+    }
+
+    public String getSaleDate() {
+        return saleDate;
+    }
+
+    public Double getTotalAmount() {
+        return totalAmount != null ? totalAmount : 0.0;
+    }
+
+    public Double getPaidAmount() {
+        return paidAmount != null ? paidAmount : 0.0;
+    }
+
+    public String getPaymentStatus() {
+        return paymentStatus != null ? paymentStatus : "UNPAID";
+    }
+
+    public List<SaleItemDto> getItems() {
+        return items != null ? items : new ArrayList<>();
+    }
 }

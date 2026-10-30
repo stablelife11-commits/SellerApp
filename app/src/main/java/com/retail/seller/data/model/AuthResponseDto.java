@@ -7,6 +7,9 @@ public class AuthResponseDto {
     @SerializedName("token")
     private String token;
 
+    @SerializedName("userId")
+    private Long userId;
+
     @SerializedName("email")
     private String email;
 
@@ -16,14 +19,19 @@ public class AuthResponseDto {
     @SerializedName("role")
     private String role;
 
+    @SerializedName("customerId")
+    private Long customerId;
+
     public AuthResponseDto() {
     }
 
-    public AuthResponseDto(String token, String email, String name, String role) {
+    public AuthResponseDto(String token, Long userId, String email, String name, String role, Long customerId) {
         this.token = token;
+        this.userId = userId;
         this.email = email;
         this.name = name;
         this.role = role;
+        this.customerId = customerId;
     }
 
     public String getToken() {
@@ -32,6 +40,14 @@ public class AuthResponseDto {
 
     public void setToken(String token) {
         this.token = token;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public String getEmail() {
@@ -56,5 +72,13 @@ public class AuthResponseDto {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public Long getCustomerId() {
+        return customerId;
+    }
+
+    public void setCustomerId(Long customerId) {
+        this.customerId = customerId;
     }
 }

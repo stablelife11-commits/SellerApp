@@ -19,6 +19,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // uCrop Repository
+        maven { url = uri("https://jitpack.io") }
     }
 }
 

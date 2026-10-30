@@ -18,6 +18,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.retail.seller.R;
 import com.retail.seller.data.model.SaleResponseDto;
 import com.retail.seller.data.network.ApiClient;
+import com.retail.seller.data.network.TokenManager;
 import com.retail.seller.ui.returns.ReturnProcessActivity;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,18 +55,20 @@ public class SalesFragment extends Fragment {
 
         rvSales.setLayoutManager(new LinearLayoutManager(requireContext()));
 
-        // 🟢 FIX: Handle both Return and Accept actions
         adapter = new SaleAdapter(requireContext(), new ArrayList<>(), new SaleAdapter.OnOrderActionListener() {
             @Override
-            public void onReturnClick(SaleResponseDto sale) {
+            public void onReturnClick(SaleResponseDto order) {
                 Intent intent = new Intent(requireContext(), ReturnProcessActivity.class);
-                intent.putExtra("EXTRA_SALE_ID", sale.getId());
+                intent.putExtra("EXTRA_ORDER_ID", order.getId());
+                if (order.getItems() != null && !order.getItems().isEmpty()) {
+                    intent.putExtra("EXTRA_VARIANT_ID", order.getItems().get(0).getVariantId());
+                }
                 startActivity(intent);
             }
 
             @Override
-            public void onAcceptOrderClick(SaleResponseDto sale) {
-                acceptCustomerOrder(sale.getId());
+            public void onStatusTransitionSelected(SaleResponseDto order, String newStatus) {
+                updateCustomerOrderStatus(order.getId(), newStatus);
             }
         });
 
@@ -80,50 +83,71 @@ public class SalesFragment extends Fragment {
         fetchSales();
     }
 
-    // 🟢 NAYA: Backend me order status 'CONFIRMED' set karna
-    private void acceptCustomerOrder(Long orderId) {
+    private void updateCustomerOrderStatus(Long orderId, String targetStatus) {
+        if (!isAdded()) return;
         salesProgress.setVisibility(View.VISIBLE);
-        ApiClient.getApiService(requireContext()).updateOrderStatus(orderId, "CONFIRMED").enqueue(new Callback<SaleResponseDto>() {
+
+        ApiClient.getApiService(requireContext()).updateOrderStatus(orderId, targetStatus).enqueue(new Callback<SaleResponseDto>() {
             @Override
             public void onResponse(@NonNull Call<SaleResponseDto> call, @NonNull Response<SaleResponseDto> response) {
+                if (!isAdded()) return;
                 salesProgress.setVisibility(View.GONE);
                 if (response.isSuccessful()) {
-                    Toast.makeText(getContext(), "Order Accepted Successfully!", Toast.LENGTH_SHORT).show();
-                    fetchSales(); // Refresh the list
+                    Toast.makeText(getContext(), "Order #" + orderId + " updated to " + targetStatus + "!", Toast.LENGTH_SHORT).show();
+                    fetchSales();
                 } else {
-                    Toast.makeText(getContext(), "Failed to accept order.", Toast.LENGTH_SHORT).show();
+                    String err = ApiClient.extractErrorMessage(response, "Failed to update order status");
+                    Toast.makeText(getContext(), err, Toast.LENGTH_LONG).show();
                 }
             }
 
             @Override
             public void onFailure(@NonNull Call<SaleResponseDto> call, @NonNull Throwable t) {
+                if (!isAdded()) return;
                 salesProgress.setVisibility(View.GONE);
-                Toast.makeText(getContext(), "Network Error", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), "Network error: " + t.getLocalizedMessage(), Toast.LENGTH_SHORT).show();
             }
         });
     }
 
     private void fetchSales() {
+        if (!isAdded()) return;
         if (!swipeRefresh.isRefreshing() && salesProgress != null) {
             salesProgress.setVisibility(View.VISIBLE);
         }
 
-        // Note: Assuming Seller ID is 1L for MVP. In production, fetch from TokenManager.
-        ApiClient.getApiService(requireContext()).getSellerOrders(1L).enqueue(new Callback<List<SaleResponseDto>>() {
+        TokenManager tm = TokenManager.getInstance(requireContext());
+        Long sellerId = tm.getUserId();
+        if (sellerId == null) {
+            hideLoading();
+            displaySales(Collections.emptyList());
+            return;
+        }
+
+        Call<List<SaleResponseDto>> call = tm.isAdmin()
+                ? ApiClient.getApiService(requireContext()).getAllOrdersForAdmin(0, 50)
+                : ApiClient.getApiService(requireContext()).getSellerOrders(sellerId, 0, 50);
+
+        call.enqueue(new Callback<List<SaleResponseDto>>() {
             @Override
             public void onResponse(@NonNull Call<List<SaleResponseDto>> call, @NonNull Response<List<SaleResponseDto>> response) {
+                if (!isAdded()) return;
                 hideLoading();
                 if (response.isSuccessful() && response.body() != null) {
                     displaySales(response.body());
                 } else {
                     displaySales(Collections.emptyList());
+                    String err = ApiClient.extractErrorMessage(response, "Could not load orders");
+                    Toast.makeText(requireContext(), err, Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(@NonNull Call<List<SaleResponseDto>> call, @NonNull Throwable t) {
+                if (!isAdded()) return;
                 hideLoading();
                 displaySales(Collections.emptyList());
+                Toast.makeText(requireContext(), "Connection failed: " + t.getLocalizedMessage(), Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -137,12 +161,12 @@ public class SalesFragment extends Fragment {
         if (sales == null || sales.isEmpty()) {
             layoutEmpty.setVisibility(View.VISIBLE);
             rvSales.setVisibility(View.GONE);
-            tvSalesCountSummary.setText(String.format(Locale.getDefault(), "%d item(s)", 0));
+            tvSalesCountSummary.setText(String.format(Locale.getDefault(), "%d order(s)", 0));
         } else {
             layoutEmpty.setVisibility(View.GONE);
             rvSales.setVisibility(View.VISIBLE);
             adapter.updateSales(sales);
-            tvSalesCountSummary.setText(String.format(Locale.getDefault(), "%d item(s)", sales.size()));
+            tvSalesCountSummary.setText(String.format(Locale.getDefault(), "%d order(s) • Tap any order to update status", sales.size()));
         }
     }
 }

@@ -12,25 +12,23 @@ public class ReturnResponseDto {
     @SerializedName("saleId")
     private Long saleId;
 
+    @SerializedName("orderId")
+    private Long orderId;
+
     @SerializedName("returnDate")
     private String returnDate;
 
     @SerializedName("reason")
     private String reason;
 
+    @SerializedName("totalReturnAmount")
+    private Double totalReturnAmount;
+
     @SerializedName("items")
     private List<ReturnItemResponseDto> items;
 
     public ReturnResponseDto() {
         this.items = new ArrayList<>();
-    }
-
-    public ReturnResponseDto(Long id, Long saleId, String returnDate, String reason, List<ReturnItemResponseDto> items) {
-        this.id = id;
-        this.saleId = saleId;
-        this.returnDate = returnDate;
-        this.reason = reason;
-        this.items = items != null ? items : new ArrayList<>();
     }
 
     public Long getId() {
@@ -49,6 +47,14 @@ public class ReturnResponseDto {
         this.saleId = saleId;
     }
 
+    public Long getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(Long orderId) {
+        this.orderId = orderId;
+    }
+
     public String getReturnDate() {
         return returnDate;
     }
@@ -65,6 +71,14 @@ public class ReturnResponseDto {
         this.reason = reason;
     }
 
+    public Double getTotalReturnAmount() {
+        return totalReturnAmount != null ? totalReturnAmount : 0.0;
+    }
+
+    public void setTotalReturnAmount(Double totalReturnAmount) {
+        this.totalReturnAmount = totalReturnAmount;
+    }
+
     public List<ReturnItemResponseDto> getItems() {
         return items != null ? items : new ArrayList<>();
     }
@@ -73,7 +87,6 @@ public class ReturnResponseDto {
         this.items = items;
     }
 
-    // Helper methods for UI compatibility
     public Integer getQuantityRestored() {
         int total = 0;
         if (items != null) {
@@ -89,6 +102,6 @@ public class ReturnResponseDto {
     }
 
     public Double getRefundAmount() {
-        return 0.0;
+        return getTotalReturnAmount();
     }
 }

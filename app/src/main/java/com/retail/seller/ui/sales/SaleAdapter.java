@@ -18,10 +18,9 @@ import java.util.Locale;
 
 public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder> {
 
-    // 🟢 FIX: Interface me Accept Order ka action joda gaya
     public interface OnOrderActionListener {
-        void onReturnClick(SaleResponseDto sale);
-        void onAcceptOrderClick(SaleResponseDto sale);
+        void onReturnClick(SaleResponseDto order);
+        void onStatusTransitionSelected(SaleResponseDto order, String newStatus);
     }
 
     private final Context context;
@@ -51,71 +50,115 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
 
     @Override
     public void onBindViewHolder(@NonNull SaleViewHolder holder, int position) {
-        SaleResponseDto sale = sales.get(position);
+        SaleResponseDto order = sales.get(position);
 
-        String saleNum = sale.getSaleNumber() != null ? sale.getSaleNumber() : String.valueOf(sale.getId());
-        holder.tvSaleNumber.setText(String.format(Locale.getDefault(), "Order #%s", saleNum));
-        holder.tvSaleCustomer.setText(String.format(Locale.getDefault(), "Customer: %s",
-                sale.getCustomerName() != null ? sale.getCustomerName() : "Walk-in Customer"));
-        holder.tvSaleTotalAmount.setText(String.format(Locale.getDefault(), "₹%.2f", sale.getTotalAmount()));
-        holder.tvSaleDate.setText(sale.getSaleDate() != null ? sale.getSaleDate() : "Recent");
+        String orderNum = order.getSaleNumber() != null ? order.getSaleNumber() : String.valueOf(order.getId());
+        String currentStatus = order.getStatus();
+        String paymentStatus = order.getPaymentStatus();
 
-        int itemCount = sale.getItems() != null ? sale.getItems().size() : 0;
-        holder.tvSaleItemsCount.setText(String.format(Locale.getDefault(), "%d item(s)", itemCount));
+        holder.tvSaleNumber.setText(String.format(Locale.getDefault(), "Order #%s • %s", orderNum, currentStatus));
+        holder.tvSaleCustomer.setText(String.format(Locale.getDefault(), "Buyer: %s (%s)",
+                order.getCustomerName() != null ? order.getCustomerName() : "Buyer",
+                order.getCustomerMobile() != null ? order.getCustomerMobile() : "N/A"));
+        holder.tvSaleTotalAmount.setText(String.format(Locale.getDefault(), "₹%.2f", order.getTotalAmount()));
 
-        // 🟢 INVOICE FORMAT POP-UP
-        holder.itemView.setOnClickListener(v -> {
-            StringBuilder invoice = new StringBuilder();
+        String dateStr = order.getSaleDate() != null ? order.getSaleDate().replace("T", " ") : "Recent";
+        holder.tvSaleDate.setText(String.format(Locale.getDefault(), "%s | Pay: %s", dateStr, paymentStatus));
 
-            // Customer Details
-            invoice.append("👤 Customer Name: ").append(sale.getCustomerName()).append("\n");
-            invoice.append("📞 Mobile: ").append(sale.getCustomerMobile() != null ? sale.getCustomerMobile() : "N/A").append("\n");
-            invoice.append("📍 Address: ").append(sale.getDeliveryAddress() != null ? sale.getDeliveryAddress() : "N/A").append("\n");
+        int itemCount = order.getItems() != null ? order.getItems().size() : 0;
+        holder.tvSaleItemsCount.setText(String.format(Locale.getDefault(), "%d item(s) • Tap to Manage", itemCount));
 
-            // Status
-            String currentStatus = sale.getStatus() != null ? sale.getStatus() : "PLACED";
-            invoice.append("📌 Status: ").append(currentStatus).append("\n");
-            invoice.append("--------------------------------------------------\n");
+        holder.itemView.setOnClickListener(v -> showOrderDetailsAndWorkflowDialog(order, orderNum, currentStatus));
 
-            // Order Items & Size
-            if (sale.getItems() != null && !sale.getItems().isEmpty()) {
-                for (int i = 0; i < sale.getItems().size(); i++) {
-                    SaleItemDto item = sale.getItems().get(i);
-                    invoice.append(i + 1).append(". ").append(item.getProductName()).append("\n");
-
-                    String size = item.getSize() != null ? item.getSize() : "N/A";
-                    String color = item.getColor() != null ? item.getColor() : "N/A";
-                    invoice.append("   Size: ").append(size).append(" | Color: ").append(color).append("\n");
-                    invoice.append("   Qty: ").append(item.getQuantity()).append(" | Price: ₹").append(item.getPrice()).append("\n\n");
+        // Only allow Return processing on DELIVERED orders (as required by backend ReturnService)
+        if ("DELIVERED".equalsIgnoreCase(currentStatus)) {
+            holder.btnCardReturn.setVisibility(View.VISIBLE);
+            holder.btnCardReturn.setOnClickListener(v -> {
+                if (actionListener != null) {
+                    actionListener.onReturnClick(order);
                 }
-            } else {
-                invoice.append("No items found.\n");
+            });
+        } else {
+            holder.btnCardReturn.setVisibility(View.GONE);
+        }
+    }
+
+    private void showOrderDetailsAndWorkflowDialog(SaleResponseDto order, String orderNum, String currentStatus) {
+        StringBuilder details = new StringBuilder();
+        details.append("👤 Buyer: ").append(order.getCustomerName() != null ? order.getCustomerName() : "N/A").append("\n");
+        details.append("📞 Mobile: ").append(order.getCustomerMobile() != null ? order.getCustomerMobile() : "N/A").append("\n");
+        details.append("📍 Delivery Address: ").append(order.getDeliveryAddress() != null ? order.getDeliveryAddress() : "N/A").append("\n");
+        details.append("📌 Order Status: ").append(currentStatus).append("\n");
+        details.append("💳 Payment: ").append(order.getPaymentStatus())
+                .append(" (Paid: ₹").append(String.format(Locale.getDefault(), "%.2f", order.getPaidAmount())).append(")\n");
+        details.append("--------------------------------------------------\n");
+
+        if (order.getItems() != null && !order.getItems().isEmpty()) {
+            for (int i = 0; i < order.getItems().size(); i++) {
+                SaleItemDto item = order.getItems().get(i);
+                details.append(i + 1).append(". ").append(item.getProductName())
+                        .append(" (Variant ID: ").append(item.getVariantId()).append(")\n");
+                String size = item.getSize() != null ? item.getSize() : "Std";
+                String color = item.getColor() != null ? item.getColor() : "Std";
+                details.append("   Size: ").append(size).append(" | Color: ").append(color).append("\n");
+                details.append("   Qty: ").append(item.getQuantity())
+                        .append(" × ₹").append(String.format(Locale.getDefault(), "%.2f", item.getPrice())).append("\n\n");
             }
-            invoice.append("--------------------------------------------------\n");
-            invoice.append("💰 TOTAL PAYABLE: ₹").append(sale.getTotalAmount());
+        } else {
+            details.append("No line items found.\n");
+        }
+        details.append("--------------------------------------------------\n");
+        details.append("💰 TOTAL AMOUNT: ₹").append(String.format(Locale.getDefault(), "%.2f", order.getTotalAmount()));
 
-            AlertDialog.Builder builder = new AlertDialog.Builder(context)
-                    .setTitle("Invoice - Order #" + saleNum)
-                    .setMessage(invoice.toString());
+        String[] validNextStates = getValidNextStatuses(currentStatus);
 
-            // 🟢 Agar order naya hai (PLACED), toh 'Accept' ka button dikhao
-            if ("PLACED".equalsIgnoreCase(currentStatus)) {
-                builder.setPositiveButton("ACCEPT ORDER", (dialog, which) -> {
-                    if (actionListener != null) actionListener.onAcceptOrderClick(sale);
-                });
-                builder.setNegativeButton("Close", null);
-            } else {
-                builder.setPositiveButton("Close", null);
-            }
+        AlertDialog.Builder builder = new AlertDialog.Builder(context)
+                .setTitle("Order #" + orderNum)
+                .setMessage(details.toString())
+                .setNegativeButton("Close", null);
 
-            builder.show();
-        });
+        if (validNextStates.length > 0) {
+            builder.setPositiveButton("Update Status (" + validNextStates[0] + "…)", (dialog, which) ->
+                    showStatusTransitionPicker(order, currentStatus, validNextStates));
+        }
 
-        holder.btnCardReturn.setOnClickListener(v -> {
-            if (actionListener != null) {
-                actionListener.onReturnClick(sale);
-            }
-        });
+        if ("DELIVERED".equalsIgnoreCase(currentStatus)) {
+            builder.setNeutralButton("Process Return", (dialog, which) -> {
+                if (actionListener != null) actionListener.onReturnClick(order);
+            });
+        }
+
+        builder.show();
+    }
+
+    private void showStatusTransitionPicker(SaleResponseDto order, String currentStatus, String[] validNextStates) {
+        new AlertDialog.Builder(context)
+                .setTitle("Move Order #" + order.getId() + " from " + currentStatus + " to:")
+                .setItems(validNextStates, (dialog, which) -> {
+                    String selectedStatus = validNextStates[which];
+                    if (actionListener != null) {
+                        actionListener.onStatusTransitionSelected(order, selectedStatus);
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    // Matches backend Order.OrderStatus.canTransitionTo(target) rules exactly
+    private String[] getValidNextStatuses(String currentStatus) {
+        if (currentStatus == null) return new String[0];
+        switch (currentStatus.toUpperCase(Locale.ROOT)) {
+            case "PLACED":
+                return new String[]{"CONFIRMED", "PROCESSING", "REJECTED", "CANCELLED"};
+            case "CONFIRMED":
+                return new String[]{"PROCESSING", "SHIPPED", "CANCELLED"};
+            case "PROCESSING":
+                return new String[]{"SHIPPED", "CANCELLED"};
+            case "SHIPPED":
+                return new String[]{"DELIVERED"};
+            default:
+                return new String[0];
+        }
     }
 
     @Override

@@ -34,12 +34,18 @@ public class VariantAdapter extends RecyclerView.Adapter<VariantAdapter.VariantV
     public void onBindViewHolder(@NonNull VariantViewHolder holder, int position) {
         ProductVariantDto variant = variants.get(position);
 
-        String attrText = String.format(Locale.getDefault(), "%s | %s",
-                variant.getSize() != null && !variant.getSize().isEmpty() ? "Size: " + variant.getSize() : "Variant",
-                variant.getColor() != null && !variant.getColor().isEmpty() ? variant.getColor() : "Standard");
+        String sizeStr = variant.getSize() != null && !variant.getSize().isEmpty() ? variant.getSize() : "Std";
+        String colorStr = variant.getColor() != null && !variant.getColor().isEmpty() ? variant.getColor() : "Std";
+        String skuStr = variant.getSku() != null ? variant.getSku() : "N/A";
+
+        String attrText = String.format(Locale.getDefault(), "%s (%s | %s)\nMOQ: %d | Pack: %d | Cost: ₹%.0f",
+                skuStr, sizeStr, colorStr,
+                variant.getMinimumOrderQuantity(),
+                variant.getPackSize(),
+                variant.getPurchasePrice());
         holder.tvVariantAttr.setText(attrText);
 
-        holder.tvVariantPrice.setText(String.format(Locale.getDefault(), "$%.2f", variant.getSellingPrice()));
+        holder.tvVariantPrice.setText(String.format(Locale.getDefault(), "₹%.2f", variant.getSellingPrice()));
 
         int stock = variant.getStockQuantity();
         holder.tvVariantStock.setText(String.format(Locale.getDefault(), "Stock: %d", stock));

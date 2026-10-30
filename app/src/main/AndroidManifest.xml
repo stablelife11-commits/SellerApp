@@ -29,13 +29,20 @@
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- Add Product Form Screen -->
+        <!-- Add / Edit Product Form Screen -->
         <activity
             android:name=".ui.products.AddProductActivity"
             android:exported="false"
             android:label="@string/title_add_product"
             android:parentActivityName=".MainActivity"
             android:windowSoftInputMode="adjustResize" />
+
+        <!-- Interactive Photo Cropper Activity (uCrop) -->
+        <activity
+            android:name="com.yalantis.ucrop.UCropActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
 
         <!-- Return Processing Screen -->
         <activity

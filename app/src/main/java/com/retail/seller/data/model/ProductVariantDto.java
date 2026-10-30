@@ -25,6 +25,18 @@ public class ProductVariantDto {
     @SerializedName("stock")
     private Integer stock;
 
+    @SerializedName("minimumOrderQuantity")
+    private Integer minimumOrderQuantity;
+
+    @SerializedName("packSize")
+    private Integer packSize;
+
+    @SerializedName("hsnCode")
+    private String hsnCode;
+
+    @SerializedName("gstPercentage")
+    private Double gstPercentage;
+
     public ProductVariantDto() {
     }
 
@@ -36,6 +48,9 @@ public class ProductVariantDto {
         this.sellingPrice = sellingPrice;
         this.purchasePrice = purchasePrice;
         this.stock = stock;
+        this.minimumOrderQuantity = 1;
+        this.packSize = 1;
+        this.gstPercentage = 0.0;
     }
 
     public Long getId() {
@@ -100,5 +115,37 @@ public class ProductVariantDto {
 
     public void setStockQuantity(Integer stockQuantity) {
         setStock(stockQuantity);
+    }
+
+    public Integer getMinimumOrderQuantity() {
+        return minimumOrderQuantity != null && minimumOrderQuantity > 0 ? minimumOrderQuantity : 1;
+    }
+
+    public void setMinimumOrderQuantity(Integer minimumOrderQuantity) {
+        this.minimumOrderQuantity = minimumOrderQuantity;
+    }
+
+    public Integer getPackSize() {
+        return packSize != null && packSize > 0 ? packSize : 1;
+    }
+
+    public void setPackSize(Integer packSize) {
+        this.packSize = packSize;
+    }
+
+    public String getHsnCode() {
+        return hsnCode;
+    }
+
+    public void setHsnCode(String hsnCode) {
+        this.hsnCode = hsnCode;
+    }
+
+    public Double getGstPercentage() {
+        return gstPercentage != null ? gstPercentage : 0.0;
+    }
+
+    public void setGstPercentage(Double gstPercentage) {
+        this.gstPercentage = gstPercentage;
     }
 }

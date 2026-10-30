@@ -8,6 +8,7 @@ public class TokenManager {
 
     private static final String PREF_NAME = "retail_seller_session";
     private static final String KEY_TOKEN = "jwt_token";
+    private static final String KEY_USER_ID = "user_id";
     private static final String KEY_EMAIL = "user_email";
     private static final String KEY_NAME = "user_name";
     private static final String KEY_ROLE = "user_role";
@@ -32,6 +33,9 @@ public class TokenManager {
         if (response.getToken() != null) {
             editor.putString(KEY_TOKEN, response.getToken());
         }
+        if (response.getUserId() != null) {
+            editor.putLong(KEY_USER_ID, response.getUserId());
+        }
         if (response.getEmail() != null) {
             editor.putString(KEY_EMAIL, response.getEmail());
         }
@@ -52,6 +56,11 @@ public class TokenManager {
         return prefs.getString(KEY_TOKEN, null);
     }
 
+    public Long getUserId() {
+        long id = prefs.getLong(KEY_USER_ID, -1L);
+        return id > 0 ? id : null;
+    }
+
     public String getEmail() {
         return prefs.getString(KEY_EMAIL, null);
     }
@@ -64,9 +73,18 @@ public class TokenManager {
         return prefs.getString(KEY_ROLE, null);
     }
 
+    public boolean isAdmin() {
+        return "ADMIN".equalsIgnoreCase(getRole());
+    }
+
+    public boolean isSellerOrAdmin() {
+        String role = getRole();
+        return "SELLER".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role);
+    }
+
     public boolean isLoggedIn() {
         String token = getToken();
-        return token != null && !token.trim().isEmpty();
+        return token != null && !token.trim().isEmpty() && getUserId() != null && isSellerOrAdmin();
     }
 
     public void clearSession() {

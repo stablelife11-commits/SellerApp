@@ -29,15 +29,14 @@ public class AuthInterceptor implements Interceptor {
         TokenManager tokenManager = TokenManager.getInstance(context);
         String token = tokenManager.getToken();
 
-        // Inject Authorization header if token is present and route is not auth endpoint
         if (token != null && !token.trim().isEmpty() && !path.contains("/auth/")) {
             requestBuilder.header("Authorization", "Bearer " + token);
         }
 
         Response response = chain.proceed(requestBuilder.build());
 
-        // Handle 401 Unauthorized or 403 Forbidden responses
-        if ((response.code() == 401 || response.code() == 403) && !path.contains("/auth/")) {
+        // Only clear session on 401 Unauthorized (invalid/expired token or deactivated user)
+        if (response.code() == 401 && !path.contains("/auth/")) {
             tokenManager.clearSession();
             redirectToLogin();
         }
