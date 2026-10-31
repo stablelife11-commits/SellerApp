@@ -16,7 +16,6 @@ public class SaleItemDto {
     @SerializedName("productName")
     private String productName;
 
-    // 🟢 NAYA: Backend se Size aur Color nikalna
     @SerializedName("size")
     private String size;
 
@@ -32,12 +31,31 @@ public class SaleItemDto {
     @SerializedName(value = "price", alternate = {"unitPrice"})
     private Double price;
 
+    @SerializedName("itemNote")
+    private String itemNote;
+
+    public SaleItemDto() {
+    }
+
+    public SaleItemDto(Long variantId, String productName, String size, String color, String sku, Integer quantity, Double price, String itemNote) {
+        this.variantId = variantId;
+        this.productName = productName;
+        this.size = size;
+        this.color = color;
+        this.sku = sku;
+        this.quantity = quantity;
+        this.price = price;
+        this.itemNote = itemNote;
+    }
+
     public Long getId() { return id; }
+    public Long getProductId() { return productId; }
     public Long getVariantId() { return variantId; }
     public String getProductName() { return productName != null ? productName : "Unknown Product"; }
-    public String getSize() { return size; } // Getter
-    public String getColor() { return color; } // Getter
+    public String getSize() { return size; }
+    public String getColor() { return color; }
     public String getSku() { return sku; }
     public Integer getQuantity() { return quantity != null ? quantity : 0; }
     public Double getPrice() { return price != null ? price : 0.0; }
+    public String getItemNote() { return itemNote; }
 }

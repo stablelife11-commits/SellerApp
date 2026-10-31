@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.retail.seller.R;
 import com.retail.seller.data.model.SaleResponseDto;
+import com.retail.seller.data.model.SellerOrderUpdateRequestDto;
 import com.retail.seller.data.network.ApiClient;
 import com.retail.seller.data.network.TokenManager;
 import com.retail.seller.ui.returns.ReturnProcessActivity;
@@ -70,6 +71,11 @@ public class SalesFragment extends Fragment {
             public void onStatusTransitionSelected(SaleResponseDto order, String newStatus) {
                 updateCustomerOrderStatus(order.getId(), newStatus);
             }
+
+            @Override
+            public void onOrderModified(Long orderId, SellerOrderUpdateRequestDto updateRequest) {
+                modifyCustomerOrder(orderId, updateRequest);
+            }
         });
 
         rvSales.setAdapter(adapter);
@@ -81,6 +87,35 @@ public class SalesFragment extends Fragment {
     public void onResume() {
         super.onResume();
         fetchSales();
+    }
+
+    private void modifyCustomerOrder(Long orderId, SellerOrderUpdateRequestDto updateRequest) {
+        if (!isAdded()) return;
+        salesProgress.setVisibility(View.VISIBLE);
+
+        ApiClient.getApiService(requireContext()).modifyOrder(orderId, updateRequest).enqueue(new Callback<SaleResponseDto>() {
+            @Override
+            public void onResponse(@NonNull Call<SaleResponseDto> call, @NonNull Response<SaleResponseDto> response) {
+                if (!isAdded()) return;
+                salesProgress.setVisibility(View.GONE);
+                if (response.isSuccessful() && response.body() != null) {
+                    Toast.makeText(getContext(),
+                            "Order #" + orderId + " updated (" + response.body().getStatus() + ")! Final Total: ₹" + response.body().getTotalAmount(),
+                            Toast.LENGTH_LONG).show();
+                    fetchSales();
+                } else {
+                    String err = ApiClient.extractErrorMessage(response, "Failed to modify order");
+                    Toast.makeText(getContext(), err, Toast.LENGTH_LONG).show();
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<SaleResponseDto> call, @NonNull Throwable t) {
+                if (!isAdded()) return;
+                salesProgress.setVisibility(View.GONE);
+                Toast.makeText(getContext(), "Network error: " + t.getLocalizedMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void updateCustomerOrderStatus(Long orderId, String targetStatus) {
@@ -166,7 +201,7 @@ public class SalesFragment extends Fragment {
             layoutEmpty.setVisibility(View.GONE);
             rvSales.setVisibility(View.VISIBLE);
             adapter.updateSales(sales);
-            tvSalesCountSummary.setText(String.format(Locale.getDefault(), "%d order(s) • Tap any order to update status", sales.size()));
+            tvSalesCountSummary.setText(String.format(Locale.getDefault(), "%d order(s) • Tap any order to review/modify", sales.size()));
         }
     }
 }

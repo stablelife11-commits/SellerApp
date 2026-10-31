@@ -10,6 +10,7 @@ import com.retail.seller.data.model.ReturnRequestDto;
 import com.retail.seller.data.model.ReturnResponseDto;
 import com.retail.seller.data.model.SaleRequestDto;
 import com.retail.seller.data.model.SaleResponseDto;
+import com.retail.seller.data.model.SellerOrderUpdateRequestDto;
 import com.retail.seller.data.model.StockUpdateRequestDto;
 import java.util.List;
 import retrofit2.Call;
@@ -73,6 +74,12 @@ public interface ApiService {
     Call<List<SaleResponseDto>> getAllOrdersForAdmin(
             @Query("page") int page,
             @Query("size") int size
+    );
+
+    @PUT("orders/{id}")
+    Call<SaleResponseDto> modifyOrder(
+            @Path("id") Long id,
+            @Body SellerOrderUpdateRequestDto request
     );
 
     @PATCH("orders/{id}/status")
