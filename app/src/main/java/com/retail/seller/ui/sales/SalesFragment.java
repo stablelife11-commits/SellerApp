@@ -2,6 +2,8 @@ package com.retail.seller.ui.sales;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -15,7 +17,10 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.textfield.TextInputEditText;
 import com.retail.seller.R;
+import com.retail.seller.data.model.SaleItemDto;
 import com.retail.seller.data.model.SaleResponseDto;
 import com.retail.seller.data.model.SellerOrderUpdateRequestDto;
 import com.retail.seller.data.network.ApiClient;
@@ -36,7 +41,12 @@ public class SalesFragment extends Fragment {
     private LinearLayout layoutEmpty;
     private ProgressBar salesProgress;
     private TextView tvSalesCountSummary;
+    private TextInputEditText etSearchOrders;
+    private ChipGroup chipGroupStatus;
     private SaleAdapter adapter;
+
+    private final List<SaleResponseDto> allOrders = new ArrayList<>();
+    private int currentStatusChipId = R.id.chip_order_all;
 
     @Nullable
     @Override
@@ -53,6 +63,8 @@ public class SalesFragment extends Fragment {
         layoutEmpty = view.findViewById(R.id.layout_empty_sales);
         salesProgress = view.findViewById(R.id.sales_progress);
         tvSalesCountSummary = view.findViewById(R.id.tv_sales_count_summary);
+        etSearchOrders = view.findViewById(R.id.et_search_orders);
+        chipGroupStatus = view.findViewById(R.id.chip_group_order_status);
 
         rvSales.setLayoutManager(new LinearLayoutManager(requireContext()));
 
@@ -80,6 +92,29 @@ public class SalesFragment extends Fragment {
 
         rvSales.setAdapter(adapter);
         swipeRefresh.setOnRefreshListener(this::fetchSales);
+
+        if (etSearchOrders != null) {
+            etSearchOrders.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    applyOrderFilters();
+                }
+
+                @Override
+                public void afterTextChanged(Editable s) {}
+            });
+        }
+
+        if (chipGroupStatus != null) {
+            chipGroupStatus.setOnCheckedStateChangeListener((group, checkedIds) -> {
+                currentStatusChipId = checkedIds.isEmpty() ? R.id.chip_order_all : checkedIds.get(0);
+                applyOrderFilters();
+            });
+        }
+
         fetchSales();
     }
 
@@ -155,6 +190,7 @@ public class SalesFragment extends Fragment {
         Long sellerId = tm.getUserId();
         if (sellerId == null) {
             hideLoading();
+            allOrders.clear();
             displaySales(Collections.emptyList());
             return;
         }
@@ -169,8 +205,11 @@ public class SalesFragment extends Fragment {
                 if (!isAdded()) return;
                 hideLoading();
                 if (response.isSuccessful() && response.body() != null) {
-                    displaySales(response.body());
+                    allOrders.clear();
+                    allOrders.addAll(response.body());
+                    applyOrderFilters();
                 } else {
+                    allOrders.clear();
                     displaySales(Collections.emptyList());
                     String err = ApiClient.extractErrorMessage(response, "Could not load orders");
                     Toast.makeText(requireContext(), err, Toast.LENGTH_SHORT).show();
@@ -181,10 +220,58 @@ public class SalesFragment extends Fragment {
             public void onFailure(@NonNull Call<List<SaleResponseDto>> call, @NonNull Throwable t) {
                 if (!isAdded()) return;
                 hideLoading();
+                allOrders.clear();
                 displaySales(Collections.emptyList());
                 Toast.makeText(requireContext(), "Connection failed: " + t.getLocalizedMessage(), Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private void applyOrderFilters() {
+        String query = etSearchOrders != null && etSearchOrders.getText() != null
+                ? etSearchOrders.getText().toString().trim().toLowerCase(Locale.ROOT) : "";
+
+        List<SaleResponseDto> filtered = new ArrayList<>();
+        for (SaleResponseDto order : allOrders) {
+            String status = order.getStatus().toUpperCase(Locale.ROOT);
+            if (!matchesStatusChip(status)) continue;
+
+            if (query.isEmpty()) {
+                filtered.add(order);
+                continue;
+            }
+
+            String idStr = String.valueOf(order.getId());
+            String custName = order.getCustomerName() != null ? order.getCustomerName().toLowerCase(Locale.ROOT) : "";
+            String custMob = order.getCustomerMobile() != null ? order.getCustomerMobile().toLowerCase(Locale.ROOT) : "";
+
+            boolean matchesHeader = idStr.contains(query) || custName.contains(query) || custMob.contains(query);
+            boolean matchesItem = false;
+            if (order.getItems() != null) {
+                for (SaleItemDto item : order.getItems()) {
+                    if ((item.getProductName() != null && item.getProductName().toLowerCase(Locale.ROOT).contains(query))
+                            || (item.getSku() != null && item.getSku().toLowerCase(Locale.ROOT).contains(query))) {
+                        matchesItem = true;
+                        break;
+                    }
+                }
+            }
+
+            if (matchesHeader || matchesItem) {
+                filtered.add(order);
+            }
+        }
+        displaySales(filtered);
+    }
+
+    private boolean matchesStatusChip(String status) {
+        if (currentStatusChipId == R.id.chip_order_all) return true;
+        if (currentStatusChipId == R.id.chip_order_pending) return "PLACED".equals(status);
+        if (currentStatusChipId == R.id.chip_order_confirmed) return "CONFIRMED".equals(status);
+        if (currentStatusChipId == R.id.chip_order_processing) return "PROCESSING".equals(status);
+        if (currentStatusChipId == R.id.chip_order_shipped) return "SHIPPED".equals(status);
+        if (currentStatusChipId == R.id.chip_order_delivered) return "DELIVERED".equals(status);
+        return true;
     }
 
     private void hideLoading() {
@@ -196,12 +283,13 @@ public class SalesFragment extends Fragment {
         if (sales == null || sales.isEmpty()) {
             layoutEmpty.setVisibility(View.VISIBLE);
             rvSales.setVisibility(View.GONE);
-            tvSalesCountSummary.setText(String.format(Locale.getDefault(), "%d order(s)", 0));
+            tvSalesCountSummary.setText(String.format(Locale.getDefault(), "Showing 0 of %d order(s)", allOrders.size()));
         } else {
             layoutEmpty.setVisibility(View.GONE);
             rvSales.setVisibility(View.VISIBLE);
             adapter.updateSales(sales);
-            tvSalesCountSummary.setText(String.format(Locale.getDefault(), "%d order(s) • Tap any order to review/modify", sales.size()));
+            tvSalesCountSummary.setText(String.format(Locale.getDefault(),
+                    "Showing %d of %d order(s) • Tap any card for full workflow", sales.size(), allOrders.size()));
         }
     }
 }

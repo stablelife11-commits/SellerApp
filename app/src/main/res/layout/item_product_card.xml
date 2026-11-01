@@ -13,7 +13,7 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <!-- Top Header: Product Thumbnail, Name & Category Chip -->
+        <!-- Top Header: 64dp Thumbnail, Title/Code/Price & Badges -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -21,11 +21,11 @@
             android:orientation="horizontal">
 
             <com.google.android.material.card.MaterialCardView
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                android:layout_marginEnd="12dp"
-                app:cardBackgroundColor="@color/indigo_50"
-                app:cardCornerRadius="10dp"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_marginEnd="14dp"
+                app:cardBackgroundColor="@color/royal_50"
+                app:cardCornerRadius="12dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/card_stroke"
                 app:strokeWidth="1dp">
@@ -62,23 +62,51 @@
                     android:text="Code: PROD-100 | Brand"
                     android:textColor="@color/text_secondary"
                     android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/tv_product_wholesale_summary"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Wholesale: ₹0.00 • Total Stock: 0"
+                    android:textColor="@color/royal_secondary"
+                    android:textSize="12.5sp"
+                    android:textStyle="bold" />
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/tv_category_tag"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@drawable/bg_chip"
-                android:paddingHorizontal="10dp"
-                android:paddingVertical="4dp"
-                android:text="Apparel"
-                android:textColor="@color/indigo_dark"
-                android:textSize="12sp"
-                android:textStyle="bold" />
+                android:gravity="end"
+                android:orientation="vertical">
 
+                <TextView
+                    android:id="@+id/tv_product_status_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_badge_emerald"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="3dp"
+                    android:text="ACTIVE"
+                    android:textColor="@color/emerald_dark"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_category_tag"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:background="@drawable/bg_chip"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="3dp"
+                    android:text="Category"
+                    android:textColor="@color/navy_primary"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
 
-        <!-- Divider -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
@@ -86,7 +114,7 @@
             android:layout_marginBottom="10dp"
             android:background="@color/card_stroke" />
 
-        <!-- Action Buttons Row: Edit, Toggle Active/Inactive, Update Stock -->
+        <!-- Action Buttons Row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -101,9 +129,10 @@
                 android:layout_height="36dp"
                 android:paddingHorizontal="8dp"
                 android:paddingVertical="0dp"
-                android:text="Edit"
-                android:textColor="@color/indigo_primary"
-                android:textSize="12sp" />
+                android:text="Edit Details"
+                android:textColor="@color/royal_secondary"
+                android:textSize="12sp"
+                android:textStyle="bold" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_toggle_product_status"
@@ -114,7 +143,8 @@
                 android:paddingVertical="0dp"
                 android:text="Deactivate"
                 android:textColor="@color/warning_red"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:textStyle="bold" />
 
             <View
                 android:layout_width="0dp"
@@ -126,22 +156,21 @@
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="wrap_content"
                 android:layout_height="36dp"
-                android:paddingHorizontal="10dp"
+                android:paddingHorizontal="12dp"
                 android:paddingVertical="0dp"
-                android:text="Update Stock"
-                android:textColor="@color/indigo_primary"
+                android:text="Adjust Stock"
+                android:textColor="@color/navy_primary"
                 android:textSize="12sp"
                 app:cornerRadius="8dp"
                 app:icon="@drawable/ic_inventory"
                 app:iconPadding="4dp"
-                app:iconSize="16dp"
-                app:iconTint="@color/indigo_primary"
-                app:strokeColor="@color/indigo_primary"
+                app:iconSize="15dp"
+                app:iconTint="@color/navy_primary"
+                app:strokeColor="@color/navy_primary"
                 app:strokeWidth="1dp" />
-
         </LinearLayout>
 
-        <!-- Variants List -->
+        <!-- Variants RecyclerView -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rv_variants"
             android:layout_width="match_parent"

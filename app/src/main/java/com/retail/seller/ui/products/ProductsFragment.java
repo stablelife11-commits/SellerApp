@@ -18,6 +18,7 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.retail.seller.R;
@@ -40,8 +41,10 @@ public class ProductsFragment extends Fragment {
     private ProgressBar productsProgress;
     private TextView tvProductCountSummary;
     private TextInputEditText etSearchProducts;
+    private ChipGroup chipGroupFilter;
     private ProductAdapter adapter;
     private final List<ProductResponseDto> allSellerProducts = new ArrayList<>();
+    private int currentCheckedChipId = R.id.chip_prod_all;
 
     public ProductsFragment() {
     }
@@ -62,6 +65,7 @@ public class ProductsFragment extends Fragment {
         productsProgress = view.findViewById(R.id.products_progress);
         tvProductCountSummary = view.findViewById(R.id.tv_product_count_summary);
         etSearchProducts = view.findViewById(R.id.et_search_products);
+        chipGroupFilter = view.findViewById(R.id.chip_group_product_filter);
         FloatingActionButton fabAdd = view.findViewById(R.id.fab_add_product);
 
         rvProducts.setLayoutManager(new LinearLayoutManager(requireContext()));
@@ -93,12 +97,19 @@ public class ProductsFragment extends Fragment {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                filterProducts(s != null ? s.toString() : "");
+                applyFilters();
             }
 
             @Override
             public void afterTextChanged(Editable s) {}
         });
+
+        if (chipGroupFilter != null) {
+            chipGroupFilter.setOnCheckedStateChangeListener((group, checkedIds) -> {
+                currentCheckedChipId = checkedIds.isEmpty() ? R.id.chip_prod_all : checkedIds.get(0);
+                applyFilters();
+            });
+        }
 
         fabAdd.setOnClickListener(v -> {
             Intent intent = new Intent(requireContext(), AddProductActivity.class);
@@ -175,9 +186,7 @@ public class ProductsFragment extends Fragment {
                 if (response.isSuccessful() && response.body() != null) {
                     allSellerProducts.clear();
                     allSellerProducts.addAll(response.body());
-                    String currentQuery = etSearchProducts != null && etSearchProducts.getText() != null
-                            ? etSearchProducts.getText().toString() : "";
-                    filterProducts(currentQuery);
+                    applyFilters();
                 } else {
                     allSellerProducts.clear();
                     displayProducts(Collections.emptyList());
@@ -196,23 +205,28 @@ public class ProductsFragment extends Fragment {
         });
     }
 
-    private void filterProducts(String query) {
-        if (query == null || query.trim().isEmpty()) {
-            displayProducts(allSellerProducts);
-            return;
-        }
-        String lower = query.trim().toLowerCase(Locale.ROOT);
+    private void applyFilters() {
+        String query = etSearchProducts != null && etSearchProducts.getText() != null
+                ? etSearchProducts.getText().toString().trim().toLowerCase(Locale.ROOT) : "";
+
         List<ProductResponseDto> filtered = new ArrayList<>();
         for (ProductResponseDto p : allSellerProducts) {
-            boolean matchesProduct = (p.getName() != null && p.getName().toLowerCase(Locale.ROOT).contains(lower))
-                    || (p.getProductCode() != null && p.getProductCode().toLowerCase(Locale.ROOT).contains(lower))
-                    || (p.getCategory() != null && p.getCategory().toLowerCase(Locale.ROOT).contains(lower))
-                    || (p.getBrand() != null && p.getBrand().toLowerCase(Locale.ROOT).contains(lower));
+            if (!matchesChipFilter(p)) continue;
+
+            if (query.isEmpty()) {
+                filtered.add(p);
+                continue;
+            }
+
+            boolean matchesProduct = (p.getName() != null && p.getName().toLowerCase(Locale.ROOT).contains(query))
+                    || (p.getProductCode() != null && p.getProductCode().toLowerCase(Locale.ROOT).contains(query))
+                    || (p.getCategory() != null && p.getCategory().toLowerCase(Locale.ROOT).contains(query))
+                    || (p.getBrand() != null && p.getBrand().toLowerCase(Locale.ROOT).contains(query));
 
             boolean matchesVariantSku = false;
             if (p.getVariants() != null) {
                 for (ProductVariantDto v : p.getVariants()) {
-                    if (v.getSku() != null && v.getSku().toLowerCase(Locale.ROOT).contains(lower)) {
+                    if (v.getSku() != null && v.getSku().toLowerCase(Locale.ROOT).contains(query)) {
                         matchesVariantSku = true;
                         break;
                     }
@@ -226,6 +240,24 @@ public class ProductsFragment extends Fragment {
         displayProducts(filtered);
     }
 
+    private boolean matchesChipFilter(ProductResponseDto p) {
+        if (currentCheckedChipId == R.id.chip_prod_all) return true;
+        if (currentCheckedChipId == R.id.chip_prod_active) return Boolean.TRUE.equals(p.getActive());
+        if (currentCheckedChipId == R.id.chip_prod_inactive) return !Boolean.TRUE.equals(p.getActive());
+
+        String text = ((p.getCategory() != null ? p.getCategory() : "") + " " + (p.getName() != null ? p.getName() : "")).toLowerCase(Locale.ROOT);
+        if (currentCheckedChipId == R.id.chip_prod_men) {
+            return (text.contains("men") && !text.contains("women")) || text.contains("vest") || text.contains("brief") || text.contains("trunk");
+        }
+        if (currentCheckedChipId == R.id.chip_prod_women) {
+            return text.contains("women") || text.contains("bra") || text.contains("panty") || text.contains("panties") || text.contains("lingerie");
+        }
+        if (currentCheckedChipId == R.id.chip_prod_kids) {
+            return text.contains("kid") || text.contains("boy") || text.contains("girl") || text.contains("child");
+        }
+        return true;
+    }
+
     private void hideLoading() {
         if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
         if (productsProgress != null) productsProgress.setVisibility(View.GONE);
@@ -235,12 +267,13 @@ public class ProductsFragment extends Fragment {
         if (products == null || products.isEmpty()) {
             layoutEmpty.setVisibility(View.VISIBLE);
             rvProducts.setVisibility(View.GONE);
-            tvProductCountSummary.setText(String.format(Locale.getDefault(), "%d product(s) in your catalog", 0));
+            tvProductCountSummary.setText(String.format(Locale.getDefault(), "Showing 0 of %d product(s)", allSellerProducts.size()));
         } else {
             layoutEmpty.setVisibility(View.GONE);
             rvProducts.setVisibility(View.VISIBLE);
             adapter.updateProducts(products);
-            tvProductCountSummary.setText(String.format(Locale.getDefault(), "%d product(s) in your catalog", products.size()));
+            tvProductCountSummary.setText(String.format(Locale.getDefault(),
+                    "Showing %d of %d product(s) in catalog", products.size(), allSellerProducts.size()));
         }
     }
 }

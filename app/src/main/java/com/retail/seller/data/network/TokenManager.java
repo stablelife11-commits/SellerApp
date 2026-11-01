@@ -13,6 +13,16 @@ public class TokenManager {
     private static final String KEY_NAME = "user_name";
     private static final String KEY_ROLE = "user_role";
 
+    // Business Profile & Settings Keys
+    private static final String KEY_BUSINESS_NAME = "seller_business_name";
+    private static final String KEY_GST_NUMBER = "seller_gst_number";
+    private static final String KEY_BUSINESS_ADDRESS = "seller_business_address";
+    private static final String KEY_BUSINESS_PHONE = "seller_business_phone";
+    private static final String KEY_NOTIFY_ORDERS = "pref_notify_orders";
+    private static final String KEY_NOTIFY_LOW_STOCK = "pref_notify_low_stock";
+    private static final String KEY_APP_LANGUAGE = "pref_app_language";
+    private static final String KEY_DARK_MODE = "pref_dark_mode";
+
     private static TokenManager instance;
     private final SharedPreferences prefs;
 
@@ -87,7 +97,71 @@ public class TokenManager {
         return token != null && !token.trim().isEmpty() && getUserId() != null && isSellerOrAdmin();
     }
 
+    // Seller Business Profile & Preferences
+    public void saveBusinessProfile(String businessName, String gstNumber, String address, String phone) {
+        prefs.edit()
+                .putString(KEY_BUSINESS_NAME, businessName)
+                .putString(KEY_GST_NUMBER, gstNumber)
+                .putString(KEY_BUSINESS_ADDRESS, address)
+                .putString(KEY_BUSINESS_PHONE, phone)
+                .apply();
+    }
+
+    public String getBusinessName() {
+        return prefs.getString(KEY_BUSINESS_NAME, "Wholesale Garments & Innerwear Hub");
+    }
+
+    public String getGstNumber() {
+        return prefs.getString(KEY_GST_NUMBER, "09AAACH7409R1ZP");
+    }
+
+    public String getBusinessAddress() {
+        return prefs.getString(KEY_BUSINESS_ADDRESS, "Main Wholesale Market, Uttar Pradesh, India");
+    }
+
+    public String getBusinessPhone() {
+        return prefs.getString(KEY_BUSINESS_PHONE, "+91 9876543210");
+    }
+
+    public boolean isOrderNotificationsEnabled() {
+        return prefs.getBoolean(KEY_NOTIFY_ORDERS, true);
+    }
+
+    public void setOrderNotificationsEnabled(boolean enabled) {
+        prefs.edit().putBoolean(KEY_NOTIFY_ORDERS, enabled).apply();
+    }
+
+    public boolean isLowStockAlertsEnabled() {
+        return prefs.getBoolean(KEY_NOTIFY_LOW_STOCK, true);
+    }
+
+    public void setLowStockAlertsEnabled(boolean enabled) {
+        prefs.edit().putBoolean(KEY_NOTIFY_LOW_STOCK, enabled).apply();
+    }
+
+    public String getAppLanguage() {
+        return prefs.getString(KEY_APP_LANGUAGE, "English (India)");
+    }
+
+    public void setAppLanguage(String language) {
+        prefs.edit().putString(KEY_APP_LANGUAGE, language).apply();
+    }
+
+    public boolean isDarkModeEnabled() {
+        return prefs.getBoolean(KEY_DARK_MODE, false);
+    }
+
+    public void setDarkModeEnabled(boolean enabled) {
+        prefs.edit().putBoolean(KEY_DARK_MODE, enabled).apply();
+    }
+
     public void clearSession() {
-        prefs.edit().clear().apply();
+        prefs.edit()
+                .remove(KEY_TOKEN)
+                .remove(KEY_USER_ID)
+                .remove(KEY_EMAIL)
+                .remove(KEY_NAME)
+                .remove(KEY_ROLE)
+                .apply();
     }
 }

@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.retail.seller.R;
 import com.retail.seller.data.model.ProductResponseDto;
+import com.retail.seller.data.model.ProductVariantDto;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -56,16 +57,49 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductV
         ProductResponseDto product = products.get(position);
         boolean isActive = Boolean.TRUE.equals(product.getActive());
 
-        String statusSuffix = isActive ? "" : " (INACTIVE)";
-        holder.tvProductName.setText((product.getName() != null ? product.getName() : "Unnamed Product") + statusSuffix);
+        holder.tvProductName.setText(product.getName() != null ? product.getName() : "Unnamed Product");
 
         String brand = product.getBrand() != null && !product.getBrand().isEmpty() ? product.getBrand() : "Generic";
         String code = product.getProductCode() != null ? product.getProductCode() : "N/A";
-        holder.tvProductSkuBrand.setText(String.format(Locale.getDefault(), "Code: %s | Brand: %s", code, brand));
+        holder.tvProductSkuBrand.setText(String.format(Locale.getDefault(), "Style Code: %s • %s", code, brand));
 
         holder.tvCategoryTag.setText(product.getCategory() != null && !product.getCategory().isEmpty() ? product.getCategory() : "General");
 
-        // Load Product Thumbnail Image with Glide
+        // Compute Wholesale Price Range & Total Stock
+        int totalStock = 0;
+        double minPrice = Double.MAX_VALUE;
+        double maxPrice = 0.0;
+        if (product.getVariants() != null && !product.getVariants().isEmpty()) {
+            for (ProductVariantDto v : product.getVariants()) {
+                totalStock += v.getStockQuantity();
+                double p = v.getSellingPrice();
+                if (p < minPrice) minPrice = p;
+                if (p > maxPrice) maxPrice = p;
+            }
+        } else {
+            minPrice = 0.0;
+        }
+
+        if (holder.tvWholesaleSummary != null) {
+            String priceText = (Math.abs(maxPrice - minPrice) < 0.01)
+                    ? String.format(Locale.getDefault(), "₹%.2f", minPrice)
+                    : String.format(Locale.getDefault(), "₹%.0f - ₹%.0f", minPrice, maxPrice);
+            holder.tvWholesaleSummary.setText(String.format(Locale.getDefault(),
+                    "Wholesale: %s • Total Stock: %d", priceText, totalStock));
+        }
+
+        if (holder.tvProductStatusBadge != null) {
+            if (isActive) {
+                holder.tvProductStatusBadge.setText("ACTIVE");
+                holder.tvProductStatusBadge.setBackgroundResource(R.drawable.bg_badge_emerald);
+                holder.tvProductStatusBadge.setTextColor(ContextCompat.getColor(context, R.color.emerald_dark));
+            } else {
+                holder.tvProductStatusBadge.setText("INACTIVE");
+                holder.tvProductStatusBadge.setBackgroundResource(R.drawable.bg_badge_red);
+                holder.tvProductStatusBadge.setTextColor(ContextCompat.getColor(context, R.color.warning_red));
+            }
+        }
+
         if (product.getImageUrls() != null && !product.getImageUrls().isEmpty()
                 && product.getImageUrls().get(0) != null && !product.getImageUrls().get(0).trim().isEmpty()) {
             holder.ivProductThumb.setPadding(0, 0, 0, 0);
@@ -76,7 +110,7 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductV
                     .centerCrop()
                     .into(holder.ivProductThumb);
         } else {
-            holder.ivProductThumb.setPadding(12, 12, 12, 12);
+            holder.ivProductThumb.setPadding(14, 14, 14, 14);
             holder.ivProductThumb.setImageResource(R.drawable.ic_box);
         }
 
@@ -114,6 +148,8 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductV
         ImageView ivProductThumb;
         TextView tvProductName;
         TextView tvProductSkuBrand;
+        TextView tvWholesaleSummary;
+        TextView tvProductStatusBadge;
         TextView tvCategoryTag;
         RecyclerView rvVariants;
         Button btnUpdateStock;
@@ -125,6 +161,8 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductV
             ivProductThumb = itemView.findViewById(R.id.iv_product_thumb);
             tvProductName = itemView.findViewById(R.id.tv_product_name);
             tvProductSkuBrand = itemView.findViewById(R.id.tv_product_sku_brand);
+            tvWholesaleSummary = itemView.findViewById(R.id.tv_product_wholesale_summary);
+            tvProductStatusBadge = itemView.findViewById(R.id.tv_product_status_badge);
             tvCategoryTag = itemView.findViewById(R.id.tv_category_tag);
             rvVariants = itemView.findViewById(R.id.rv_variants);
             btnUpdateStock = itemView.findViewById(R.id.btn_update_stock);

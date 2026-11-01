@@ -13,54 +13,66 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <!-- Top Row: Sale # & Total Amount -->
+        <!-- Top Row: Order ID + Status Badge + Total Amount -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <LinearLayout
-                android:layout_width="0dp"
+            <TextView
+                android:id="@+id/tv_sale_number"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
+                android:text="Order #1001"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
 
-                <TextView
-                    android:id="@+id/tv_sale_number"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Sale #1001"
-                    android:textColor="@color/text_primary"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+            <TextView
+                android:id="@+id/tv_order_status_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_badge_amber"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="3dp"
+                android:text="PLACED"
+                android:textColor="@color/amber_warning_dark"
+                android:textSize="11sp"
+                android:textStyle="bold" />
 
-                <TextView
-                    android:id="@+id/tv_sale_customer"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="Customer: John Doe"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="13sp" />
-            </LinearLayout>
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
 
             <TextView
                 android:id="@+id/tv_sale_total_amount"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="$129.99"
-                android:textColor="@color/emerald_dark"
+                android:text="₹0.00"
+                android:textColor="@color/navy_primary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
-
         </LinearLayout>
 
-        <!-- Middle Row: Date & Items summary -->
+        <!-- Buyer Info -->
+        <TextView
+            android:id="@+id/tv_sale_customer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Buyer: Shopkeeper Name (9876543210)"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <!-- Date, Payment Status Badge & Items Count -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="8dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -69,9 +81,22 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="2025-02-23 14:30"
+                android:text="2026-10-25 14:30"
                 android:textColor="@color/text_muted"
                 android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tv_payment_status_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/bg_badge_red"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="3dp"
+                android:text="UNPAID"
+                android:textColor="@color/warning_red"
+                android:textSize="10.5sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tv_sale_items_count"
@@ -81,34 +106,67 @@
                 android:paddingHorizontal="8dp"
                 android:paddingVertical="3dp"
                 android:text="2 items"
-                android:textColor="@color/indigo_dark"
-                android:textSize="12sp" />
+                android:textColor="@color/royal_secondary"
+                android:textSize="11.5sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Divider -->
-        <View
+        <!-- Quick Accept / Reject / Advance Action Row -->
+        <LinearLayout
+            android:id="@+id/layout_order_quick_actions"
             android:layout_width="match_parent"
-            android:layout_height="1dp"
+            android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:layout_marginBottom="12dp"
-            android:background="@color/card_stroke" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <!-- Bottom Action Row -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_accept_order"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:text="Accept Order"
+                android:textAllCaps="false"
+                android:textSize="12.5sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/emerald_accent"
+                app:cornerRadius="10dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_reject_order"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:text="Reject"
+                android:textAllCaps="false"
+                android:textColor="@color/warning_red"
+                android:textSize="12.5sp"
+                android:textStyle="bold"
+                app:cornerRadius="10dp"
+                app:strokeColor="@color/warning_red" />
+        </LinearLayout>
+
+        <!-- Return Button Row for Delivered Orders -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
             android:gravity="end">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_card_return"
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="36dp"
                 android:text="@string/btn_return_item"
-                android:textColor="@color/indigo_primary"
-                android:textSize="13sp"
+                android:textColor="@color/royal_secondary"
+                android:textSize="12.5sp"
+                android:visibility="gone"
                 app:icon="@drawable/ic_return"
-                app:iconTint="@color/indigo_primary" />
+                app:iconTint="@color/royal_secondary" />
         </LinearLayout>
 
     </LinearLayout>

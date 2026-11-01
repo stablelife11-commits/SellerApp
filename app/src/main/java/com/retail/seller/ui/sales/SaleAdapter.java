@@ -14,7 +14,9 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
+import com.google.android.material.button.MaterialButton;
 import com.retail.seller.R;
 import com.retail.seller.data.model.SaleItemDto;
 import com.retail.seller.data.model.SaleResponseDto;
@@ -61,20 +63,106 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
         SaleResponseDto order = sales.get(position);
 
         String orderNum = order.getSaleNumber() != null ? order.getSaleNumber() : String.valueOf(order.getId());
-        String currentStatus = order.getStatus();
-        String paymentStatus = order.getPaymentStatus();
+        String currentStatus = order.getStatus().toUpperCase(Locale.ROOT);
+        String paymentStatus = order.getPaymentStatus().toUpperCase(Locale.ROOT);
 
-        holder.tvSaleNumber.setText(String.format(Locale.getDefault(), "Order #%s • %s", orderNum, currentStatus));
+        holder.tvSaleNumber.setText(String.format(Locale.getDefault(), "Order #%s", orderNum));
         holder.tvSaleCustomer.setText(String.format(Locale.getDefault(), "Buyer: %s (%s)",
                 order.getCustomerName() != null ? order.getCustomerName() : "Buyer",
                 order.getCustomerMobile() != null ? order.getCustomerMobile() : "N/A"));
         holder.tvSaleTotalAmount.setText(String.format(Locale.getDefault(), "₹%.2f", order.getTotalAmount()));
 
         String dateStr = order.getSaleDate() != null ? order.getSaleDate().replace("T", " ") : "Recent";
-        holder.tvSaleDate.setText(String.format(Locale.getDefault(), "%s | Pay: %s", dateStr, paymentStatus));
+        if (dateStr.length() > 16) dateStr = dateStr.substring(0, 16);
+        holder.tvSaleDate.setText(dateStr);
 
         int itemCount = order.getItems() != null ? order.getItems().size() : 0;
-        holder.tvSaleItemsCount.setText(String.format(Locale.getDefault(), "%d item(s) • Tap to Review / Modify", itemCount));
+        holder.tvSaleItemsCount.setText(String.format(Locale.getDefault(), "%d item(s) • Details", itemCount));
+
+        // Style Order Status Badge
+        if (holder.tvOrderStatusBadge != null) {
+            holder.tvOrderStatusBadge.setText(currentStatus);
+            switch (currentStatus) {
+                case "DELIVERED":
+                    holder.tvOrderStatusBadge.setBackgroundResource(R.drawable.bg_badge_emerald);
+                    holder.tvOrderStatusBadge.setTextColor(ContextCompat.getColor(context, R.color.emerald_dark));
+                    break;
+                case "CONFIRMED":
+                case "PROCESSING":
+                case "SHIPPED":
+                    holder.tvOrderStatusBadge.setBackgroundResource(R.drawable.bg_badge_blue);
+                    holder.tvOrderStatusBadge.setTextColor(ContextCompat.getColor(context, R.color.royal_secondary));
+                    break;
+                case "CANCELLED":
+                case "REJECTED":
+                    holder.tvOrderStatusBadge.setBackgroundResource(R.drawable.bg_badge_red);
+                    holder.tvOrderStatusBadge.setTextColor(ContextCompat.getColor(context, R.color.warning_red));
+                    break;
+                default: // PLACED
+                    holder.tvOrderStatusBadge.setBackgroundResource(R.drawable.bg_badge_amber);
+                    holder.tvOrderStatusBadge.setTextColor(ContextCompat.getColor(context, R.color.amber_warning_dark));
+                    break;
+            }
+        }
+
+        // Style Payment Status Badge
+        if (holder.tvPaymentStatusBadge != null) {
+            holder.tvPaymentStatusBadge.setText(paymentStatus);
+            if ("PAID".equals(paymentStatus)) {
+                holder.tvPaymentStatusBadge.setBackgroundResource(R.drawable.bg_badge_emerald);
+                holder.tvPaymentStatusBadge.setTextColor(ContextCompat.getColor(context, R.color.emerald_dark));
+            } else if ("PARTIALLY_PAID".equals(paymentStatus)) {
+                holder.tvPaymentStatusBadge.setBackgroundResource(R.drawable.bg_badge_amber);
+                holder.tvPaymentStatusBadge.setTextColor(ContextCompat.getColor(context, R.color.amber_warning_dark));
+            } else {
+                holder.tvPaymentStatusBadge.setBackgroundResource(R.drawable.bg_badge_red);
+                holder.tvPaymentStatusBadge.setTextColor(ContextCompat.getColor(context, R.color.warning_red));
+            }
+        }
+
+        // Direct Accept & Reject actions for PLACED orders
+        if (holder.layoutQuickActions != null && holder.btnAcceptOrder != null && holder.btnRejectOrder != null) {
+            if ("PLACED".equals(currentStatus)) {
+                holder.layoutQuickActions.setVisibility(View.VISIBLE);
+                holder.btnAcceptOrder.setText("Accept Order");
+                holder.btnRejectOrder.setVisibility(View.VISIBLE);
+
+                holder.btnAcceptOrder.setOnClickListener(v -> {
+                    if (actionListener != null) actionListener.onStatusTransitionSelected(order, "CONFIRMED");
+                });
+                holder.btnRejectOrder.setOnClickListener(v -> new AlertDialog.Builder(context)
+                        .setTitle("Reject Order #" + orderNum)
+                        .setMessage("Are you sure you want to reject this order? Reserved inventory stock will be automatically released.")
+                        .setPositiveButton("Reject Order", (d, w) -> {
+                            if (actionListener != null) actionListener.onStatusTransitionSelected(order, "REJECTED");
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show());
+            } else if ("CONFIRMED".equals(currentStatus)) {
+                holder.layoutQuickActions.setVisibility(View.VISIBLE);
+                holder.btnAcceptOrder.setText("Mark Processing");
+                holder.btnRejectOrder.setVisibility(View.GONE);
+                holder.btnAcceptOrder.setOnClickListener(v -> {
+                    if (actionListener != null) actionListener.onStatusTransitionSelected(order, "PROCESSING");
+                });
+            } else if ("PROCESSING".equals(currentStatus)) {
+                holder.layoutQuickActions.setVisibility(View.VISIBLE);
+                holder.btnAcceptOrder.setText("Mark Shipped");
+                holder.btnRejectOrder.setVisibility(View.GONE);
+                holder.btnAcceptOrder.setOnClickListener(v -> {
+                    if (actionListener != null) actionListener.onStatusTransitionSelected(order, "SHIPPED");
+                });
+            } else if ("SHIPPED".equals(currentStatus)) {
+                holder.layoutQuickActions.setVisibility(View.VISIBLE);
+                holder.btnAcceptOrder.setText("Mark Delivered");
+                holder.btnRejectOrder.setVisibility(View.GONE);
+                holder.btnAcceptOrder.setOnClickListener(v -> {
+                    if (actionListener != null) actionListener.onStatusTransitionSelected(order, "DELIVERED");
+                });
+            } else {
+                holder.layoutQuickActions.setVisibility(View.GONE);
+            }
+        }
 
         holder.itemView.setOnClickListener(v -> showOrderDetailsAndWorkflowDialog(order, orderNum, currentStatus));
 
@@ -366,6 +454,9 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
 
     static class SaleViewHolder extends RecyclerView.ViewHolder {
         TextView tvSaleNumber, tvSaleCustomer, tvSaleTotalAmount, tvSaleDate, tvSaleItemsCount;
+        TextView tvOrderStatusBadge, tvPaymentStatusBadge;
+        View layoutQuickActions;
+        MaterialButton btnAcceptOrder, btnRejectOrder;
         Button btnCardReturn;
 
         public SaleViewHolder(@NonNull View itemView) {
@@ -375,6 +466,11 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
             tvSaleTotalAmount = itemView.findViewById(R.id.tv_sale_total_amount);
             tvSaleDate = itemView.findViewById(R.id.tv_sale_date);
             tvSaleItemsCount = itemView.findViewById(R.id.tv_sale_items_count);
+            tvOrderStatusBadge = itemView.findViewById(R.id.tv_order_status_badge);
+            tvPaymentStatusBadge = itemView.findViewById(R.id.tv_payment_status_badge);
+            layoutQuickActions = itemView.findViewById(R.id.layout_order_quick_actions);
+            btnAcceptOrder = itemView.findViewById(R.id.btn_accept_order);
+            btnRejectOrder = itemView.findViewById(R.id.btn_reject_order);
             btnCardReturn = itemView.findViewById(R.id.btn_card_return);
         }
     }
