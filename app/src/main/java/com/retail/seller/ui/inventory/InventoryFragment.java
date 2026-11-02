@@ -53,8 +53,7 @@ public class InventoryFragment extends Fragment {
     private ProgressBar progressBar;
 
     private final List<VariantInventoryItem> allVariantItems = new ArrayList<>();
-    private final List<ReturnResponseDto> returnLogs = new ArrayList<>();
-    private final List<SaleResponseDto> orderLogs = new ArrayList<>();
+    private final List<com.retail.seller.data.model.InventoryTransactionDto> auditLogs = new ArrayList<>();
     private int currentFilterChipId = R.id.chip_inv_all;
 
     public InventoryFragment() {
@@ -162,47 +161,28 @@ public class InventoryFragment extends Fragment {
         });
 
         // Fetch Return Restock History & Order Stock Movement History
-        ApiClient.getApiService(requireContext()).getReturns().enqueue(new Callback<List<ReturnResponseDto>>() {
-            @Override
-            public void onResponse(@NonNull Call<List<ReturnResponseDto>> call, @NonNull Response<List<ReturnResponseDto>> response) {
-                if (!isAdded()) return;
-                returnLogs.clear();
-                if (response.isSuccessful() && response.body() != null) {
-                    returnLogs.addAll(response.body());
-                }
-                if (currentFilterChipId == R.id.chip_inv_history) {
-                    renderCurrentView();
-                }
-            }
-
-            @Override
-            public void onFailure(@NonNull Call<List<ReturnResponseDto>> call, @NonNull Throwable t) {
-            }
-        });
-
-        TokenManager tm = TokenManager.getInstance(requireContext());
-        if (tm.getUserId() != null) {
-            Call<List<SaleResponseDto>> ordersCall = tm.isAdmin()
-                    ? ApiClient.getApiService(requireContext()).getAllOrdersForAdmin(0, 30)
-                    : ApiClient.getApiService(requireContext()).getSellerOrders(tm.getUserId(), 0, 30);
-            ordersCall.enqueue(new Callback<List<SaleResponseDto>>() {
-                @Override
-                public void onResponse(@NonNull Call<List<SaleResponseDto>> call, @NonNull Response<List<SaleResponseDto>> response) {
-                    if (!isAdded()) return;
-                    orderLogs.clear();
-                    if (response.isSuccessful() && response.body() != null) {
-                        orderLogs.addAll(response.body());
+        ApiClient.getApiService(requireContext()).getInventoryTransactions(0, 50)
+                .enqueue(new Callback<List<com.retail.seller.data.model.InventoryTransactionDto>>() {
+                    @Override
+                    public void onResponse(
+                            @NonNull Call<List<com.retail.seller.data.model.InventoryTransactionDto>> call,
+                            @NonNull Response<List<com.retail.seller.data.model.InventoryTransactionDto>> response) {
+                        if (!isAdded()) return;
+                        auditLogs.clear();
+                        if (response.isSuccessful() && response.body() != null) {
+                            auditLogs.addAll(response.body());
+                        }
+                        if (currentFilterChipId == R.id.chip_inv_history) {
+                            renderCurrentView();
+                        }
                     }
-                    if (currentFilterChipId == R.id.chip_inv_history) {
-                        renderCurrentView();
-                    }
-                }
 
-                @Override
-                public void onFailure(@NonNull Call<List<SaleResponseDto>> call, @NonNull Throwable t) {
-                }
-            });
-        }
+                    @Override
+                    public void onFailure(
+                            @NonNull Call<List<com.retail.seller.data.model.InventoryTransactionDto>> call,
+                            @NonNull Throwable t) {
+                    }
+                });
     }
 
     private void renderCurrentView() {
@@ -325,113 +305,63 @@ public class InventoryFragment extends Fragment {
 
     private void renderTransactionHistory() {
         float density = getResources().getDisplayMetrics().density;
-        int count = 0;
-
-        // 1. Render Customer Return Restock Transactions
-        for (ReturnResponseDto ret : returnLogs) {
-            MaterialCardView card = new MaterialCardView(requireContext());
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            params.bottomMargin = (int) (8 * density);
-            card.setLayoutParams(params);
-            card.setRadius(12 * density);
-            card.setCardBackgroundColor(ContextCompat.getColor(requireContext(), R.color.surface_white));
-
-            LinearLayout box = new LinearLayout(requireContext());
-            box.setOrientation(LinearLayout.VERTICAL);
-            int pad = (int) (14 * density);
-            box.setPadding(pad, pad, pad, pad);
-
-            TextView tvHeader = new TextView(requireContext());
-            String source = ret.getOrderId() != null ? "Order #" + ret.getOrderId() : "POS Sale #" + ret.getSaleId();
-            tvHeader.setText(String.format(Locale.getDefault(), "RETURN RESTOCK (+%d units) • %s",
-                    ret.getQuantityRestored(), source));
-            tvHeader.setTextColor(ContextCompat.getColor(requireContext(), R.color.emerald_dark));
-            tvHeader.setTypeface(null, Typeface.BOLD);
-            tvHeader.setTextSize(14f);
-            box.addView(tvHeader);
-
-            StringBuilder skus = new StringBuilder();
-            for (ReturnItemResponseDto item : ret.getItems()) {
-                if (skus.length() > 0) skus.append(", ");
-                skus.append(item.getSku()).append(" (+").append(item.getQuantity()).append(")");
-            }
-
-            TextView tvSub = new TextView(requireContext());
-            tvSub.setText(String.format(Locale.getDefault(), "Date: %s | SKUs: %s\nReason: %s",
-                    ret.getReturnDate() != null ? ret.getReturnDate() : "Recent",
-                    skus.length() > 0 ? skus.toString() : "N/A",
-                    ret.getReason() != null ? ret.getReason() : "N/A"));
-            tvSub.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
-            tvSub.setTextSize(12f);
-            box.addView(tvSub);
-
-            card.addView(box);
-            layoutListContainer.addView(card);
-            count++;
-        }
-
-        // 2. Render Order Stock Reservation / Release Movements
-        for (SaleResponseDto order : orderLogs) {
-            if (order.getItems() == null || order.getItems().isEmpty()) continue;
-            String status = order.getStatus();
-            boolean isReleased = "CANCELLED".equalsIgnoreCase(status) || "REJECTED".equalsIgnoreCase(status);
-
-            int totalQty = 0;
-            StringBuilder skuSummary = new StringBuilder();
-            for (SaleItemDto item : order.getItems()) {
-                totalQty += item.getQuantity();
-                if (skuSummary.length() > 0) skuSummary.append(", ");
-                skuSummary.append(item.getSku() != null ? item.getSku() : item.getProductName())
-                        .append(" (").append(item.getQuantity()).append(")");
-            }
-
-            MaterialCardView card = new MaterialCardView(requireContext());
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            params.bottomMargin = (int) (8 * density);
-            card.setLayoutParams(params);
-            card.setRadius(12 * density);
-            card.setCardBackgroundColor(ContextCompat.getColor(requireContext(), R.color.surface_white));
-
-            LinearLayout box = new LinearLayout(requireContext());
-            box.setOrientation(LinearLayout.VERTICAL);
-            int pad = (int) (14 * density);
-            box.setPadding(pad, pad, pad, pad);
-
-            TextView tvHeader = new TextView(requireContext());
-            tvHeader.setText(String.format(Locale.getDefault(), "%s (%s%d units) • Order #%d",
-                    isReleased ? "ORDER RELEASE" : "ORDER RESERVATION",
-                    isReleased ? "+" : "-",
-                    totalQty,
-                    order.getId()));
-            tvHeader.setTextColor(ContextCompat.getColor(requireContext(),
-                    isReleased ? R.color.amber_warning_dark : R.color.royal_secondary));
-            tvHeader.setTypeface(null, Typeface.BOLD);
-            tvHeader.setTextSize(14f);
-            box.addView(tvHeader);
-
-            TextView tvSub = new TextView(requireContext());
-            tvSub.setText(String.format(Locale.getDefault(), "Status: %s | Date: %s\nItems: %s",
-                    status,
-                    order.getSaleDate() != null ? order.getSaleDate().replace("T", " ") : "Recent",
-                    skuSummary));
-            tvSub.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
-            tvSub.setTextSize(12f);
-            box.addView(tvSub);
-
-            card.addView(box);
-            layoutListContainer.addView(card);
-            count++;
-        }
-
-        if (count == 0) {
+        if (auditLogs.isEmpty()) {
             TextView empty = new TextView(requireContext());
             empty.setText("No inventory movement records found yet.");
             empty.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
             empty.setGravity(Gravity.CENTER);
             empty.setPadding(24, 48, 24, 48);
             layoutListContainer.addView(empty);
+            return;
+        }
+
+        for (com.retail.seller.data.model.InventoryTransactionDto tx : auditLogs) {
+            MaterialCardView card = new MaterialCardView(requireContext());
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            params.bottomMargin = (int) (8 * density);
+            card.setLayoutParams(params);
+            card.setRadius(12 * density);
+            card.setCardBackgroundColor(ContextCompat.getColor(requireContext(), R.color.surface_white));
+
+            LinearLayout box = new LinearLayout(requireContext());
+            box.setOrientation(LinearLayout.VERTICAL);
+            int pad = (int) (14 * density);
+            box.setPadding(pad, pad, pad, pad);
+
+            int delta = tx.getNewStock() - tx.getPreviousStock();
+            String sign = delta >= 0 ? "+" : "";
+
+            TextView tvHeader = new TextView(requireContext());
+            tvHeader.setText(String.format(Locale.getDefault(), "%s (%s%d units) • %s #%s",
+                    tx.getType(),
+                    sign,
+                    delta,
+                    tx.getReferenceType(),
+                    tx.getReferenceId() != null ? tx.getReferenceId() : "N/A"));
+            tvHeader.setTextColor(ContextCompat.getColor(requireContext(),
+                    delta >= 0 ? R.color.emerald_dark : R.color.royal_secondary));
+            tvHeader.setTypeface(null, Typeface.BOLD);
+            tvHeader.setTextSize(14f);
+            box.addView(tvHeader);
+
+            String dateStr = tx.getCreatedAt() != null ? tx.getCreatedAt().replace("T", " ") : "Recent";
+            if (dateStr.length() > 16) dateStr = dateStr.substring(0, 16);
+
+            TextView tvSub = new TextView(requireContext());
+            tvSub.setText(String.format(Locale.getDefault(),
+                    "%s (SKU: %s) • Stock: %d → %d\nDate: %s",
+                    tx.getProductName(),
+                    tx.getSku(),
+                    tx.getPreviousStock(),
+                    tx.getNewStock(),
+                    dateStr));
+            tvSub.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
+            tvSub.setTextSize(12f);
+            box.addView(tvSub);
+
+            card.addView(box);
+            layoutListContainer.addView(card);
         }
     }
 

@@ -55,8 +55,8 @@ public class AddProductActivity extends AppCompatActivity {
     public static final String EXTRA_EDIT_PRODUCT_ID = "EXTRA_EDIT_PRODUCT_ID";
 
     // TODO: Replace these 2 values with your Cloudinary Cloud Name and Unsigned Upload Preset
-    private static final String CLOUDINARY_CLOUD_NAME = "kfapwod1";
-    private static final String CLOUDINARY_UPLOAD_PRESET = "retail_flow_unsigned";
+    private static final String CLOUDINARY_CLOUD_NAME = com.retail.seller.BuildConfig.CLOUDINARY_CLOUD_NAME;
+    private static final String CLOUDINARY_UPLOAD_PRESET = com.retail.seller.BuildConfig.CLOUDINARY_UPLOAD_PRESET;
 
     private TextInputEditText etName, etSku, etCategory, etBrand, etDescription, etImageUrl;
     private ImageView ivProductPreview;

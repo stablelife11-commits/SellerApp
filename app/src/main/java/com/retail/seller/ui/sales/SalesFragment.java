@@ -19,7 +19,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.gson.Gson;
 import com.retail.seller.R;
+import com.retail.seller.data.model.PaymentRequestDto;
+import com.retail.seller.data.model.PaymentResponseDto;
 import com.retail.seller.data.model.SaleItemDto;
 import com.retail.seller.data.model.SaleResponseDto;
 import com.retail.seller.data.model.SellerOrderUpdateRequestDto;
@@ -73,6 +76,7 @@ public class SalesFragment extends Fragment {
             public void onReturnClick(SaleResponseDto order) {
                 Intent intent = new Intent(requireContext(), ReturnProcessActivity.class);
                 intent.putExtra("EXTRA_ORDER_ID", order.getId());
+                intent.putExtra(ReturnProcessActivity.EXTRA_ORDER_JSON, new Gson().toJson(order));
                 if (order.getItems() != null && !order.getItems().isEmpty()) {
                     intent.putExtra("EXTRA_VARIANT_ID", order.getItems().get(0).getVariantId());
                 }
@@ -87,6 +91,11 @@ public class SalesFragment extends Fragment {
             @Override
             public void onOrderModified(Long orderId, SellerOrderUpdateRequestDto updateRequest) {
                 modifyCustomerOrder(orderId, updateRequest);
+            }
+
+            @Override
+            public void onRecordPayment(PaymentRequestDto paymentRequest) {
+                recordCustomerPayment(paymentRequest);
             }
         });
 
@@ -122,6 +131,35 @@ public class SalesFragment extends Fragment {
     public void onResume() {
         super.onResume();
         fetchSales();
+    }
+
+    private void recordCustomerPayment(PaymentRequestDto paymentRequest) {
+        if (!isAdded()) return;
+        salesProgress.setVisibility(View.VISIBLE);
+
+        ApiClient.getApiService(requireContext()).recordPayment(paymentRequest).enqueue(new Callback<PaymentResponseDto>() {
+            @Override
+            public void onResponse(@NonNull Call<PaymentResponseDto> call, @NonNull Response<PaymentResponseDto> response) {
+                if (!isAdded()) return;
+                salesProgress.setVisibility(View.GONE);
+                if (response.isSuccessful() && response.body() != null) {
+                    Toast.makeText(getContext(),
+                            String.format(Locale.getDefault(), "Payment of ₹%.2f recorded successfully!", response.body().getAmount()),
+                            Toast.LENGTH_LONG).show();
+                    fetchSales();
+                } else {
+                    String err = ApiClient.extractErrorMessage(response, "Failed to record payment");
+                    Toast.makeText(getContext(), err, Toast.LENGTH_LONG).show();
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<PaymentResponseDto> call, @NonNull Throwable t) {
+                if (!isAdded()) return;
+                salesProgress.setVisibility(View.GONE);
+                Toast.makeText(getContext(), "Network error: " + t.getLocalizedMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void modifyCustomerOrder(Long orderId, SellerOrderUpdateRequestDto updateRequest) {

@@ -19,6 +19,7 @@ import androidx.fragment.app.Fragment;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
+import com.google.gson.Gson;
 import com.retail.seller.MainActivity;
 import com.retail.seller.R;
 import com.retail.seller.data.model.DashboardSummaryDto;
@@ -176,7 +177,6 @@ public class DashboardFragment extends Fragment {
             dashboardProgress.setVisibility(View.VISIBLE);
         }
 
-        // 1. Fetch authoritative financial summary from /api/v1/reports/dashboard-summary
         ApiClient.getApiService(requireContext()).getDashboardSummary().enqueue(new Callback<DashboardSummaryDto>() {
             @Override
             public void onResponse(@NonNull Call<DashboardSummaryDto> call, @NonNull Response<DashboardSummaryDto> response) {
@@ -192,7 +192,6 @@ public class DashboardFragment extends Fragment {
             }
         });
 
-        // 2. Fetch Seller's catalog for Active Products & Low Stock Alerts
         ApiClient.getApiService(requireContext()).getMyProducts(0, 100).enqueue(new Callback<List<ProductResponseDto>>() {
             @Override
             public void onResponse(@NonNull Call<List<ProductResponseDto>> call, @NonNull Response<List<ProductResponseDto>> response) {
@@ -211,7 +210,6 @@ public class DashboardFragment extends Fragment {
             }
         });
 
-        // 3. Fetch Seller's Orders (up to 100) for Today's Sales, Monthly Revenue, Analytics Chart, Best Sellers & Recent Orders
         TokenManager tm = TokenManager.getInstance(requireContext());
         Long sellerId = tm.getUserId();
         if (sellerId == null) {
@@ -352,7 +350,7 @@ public class DashboardFragment extends Fragment {
                 }
 
                 LocalDate orderDate = parseOrderLocalDate(order.getSaleDate());
-                double amount = order.getTotalAmount();
+                double amount = order.getNetPayableAmount();
 
                 if (!isCancelledOrRejected) {
                     if (orderDate != null) {
@@ -571,7 +569,7 @@ public class DashboardFragment extends Fragment {
             tvSaleCustomer.setText(String.format(Locale.getDefault(), "Buyer: %s (%s)",
                     order.getCustomerName() != null ? order.getCustomerName() : "Buyer",
                     order.getCustomerMobile() != null ? order.getCustomerMobile() : "N/A"));
-            tvSaleTotalAmount.setText(String.format(Locale.getDefault(), "₹%.2f", order.getTotalAmount()));
+            tvSaleTotalAmount.setText(String.format(Locale.getDefault(), "₹%.2f", order.getNetPayableAmount()));
             tvSaleDate.setText(order.getSaleDate() != null ? order.getSaleDate().replace("T", " ") : "Recent");
             int itemsCount = order.getItems() != null ? order.getItems().size() : 0;
             tvSaleItemsCount.setText(String.format(Locale.getDefault(), "%d item(s)", itemsCount));
@@ -587,6 +585,7 @@ public class DashboardFragment extends Fragment {
                 btnCardReturn.setOnClickListener(v -> {
                     Intent intent = new Intent(requireContext(), ReturnProcessActivity.class);
                     intent.putExtra("EXTRA_ORDER_ID", order.getId());
+                    intent.putExtra(ReturnProcessActivity.EXTRA_ORDER_JSON, new Gson().toJson(order));
                     if (order.getItems() != null && !order.getItems().isEmpty()) {
                         intent.putExtra("EXTRA_VARIANT_ID", order.getItems().get(0).getVariantId());
                     }

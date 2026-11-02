@@ -121,35 +121,68 @@
                             android:inputType="number" />
                     </com.google.android.material.textfield.TextInputLayout>
 
-                    <!-- Variant ID -->
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    <!-- Dynamic Multi-Item Order Selector (Shown when opened from an Order) -->
+                    <LinearLayout
+                        android:id="@+id/layout_order_items_section"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="12dp"
-                        android:hint="@string/hint_variant_id">
+                        android:orientation="vertical"
+                        android:visibility="gone">
 
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_return_variant_id"
+                        <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:inputType="number" />
-                    </com.google.android.material.textfield.TextInputLayout>
+                            android:layout_marginBottom="8dp"
+                            android:text="Enter Return Quantity for Items Below (Leave 0 to skip):"
+                            android:textColor="@color/indigo_primary"
+                            android:textSize="13.5sp"
+                            android:textStyle="bold" />
 
-                    <!-- Return Quantity -->
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        <LinearLayout
+                            android:id="@+id/layout_order_items_return_list"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+                    </LinearLayout>
+
+                    <!-- Manual Single-Variant Fallback (Shown when no item list is passed) -->
+                    <LinearLayout
+                        android:id="@+id/layout_manual_variant_inputs"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
-                        android:hint="@string/hint_return_qty">
+                        android:orientation="vertical">
 
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_return_quantity"
+                        <!-- Variant ID -->
+                        <com.google.android.material.textfield.TextInputLayout
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:inputType="number" />
-                    </com.google.android.material.textfield.TextInputLayout>
+                            android:layout_marginBottom="12dp"
+                            android:hint="@string/hint_variant_id">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/et_return_variant_id"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="number" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <!-- Return Quantity -->
+                        <com.google.android.material.textfield.TextInputLayout
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="12dp"
+                            android:hint="@string/hint_return_qty">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/et_return_quantity"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="number" />
+                        </com.google.android.material.textfield.TextInputLayout>
+                    </LinearLayout>
 
                     <!-- Reason -->
                     <com.google.android.material.textfield.TextInputLayout

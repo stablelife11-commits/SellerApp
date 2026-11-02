@@ -25,6 +25,15 @@ public class SaleItemDto {
     @SerializedName("sku")
     private String sku;
 
+    @SerializedName("hsnCode")
+    private String hsnCode;
+
+    @SerializedName("gstPercentage")
+    private Double gstPercentage;
+
+    @SerializedName("taxAmount")
+    private Double taxAmount;
+
     @SerializedName("quantity")
     private Integer quantity;
 
@@ -55,6 +64,9 @@ public class SaleItemDto {
     public String getSize() { return size; }
     public String getColor() { return color; }
     public String getSku() { return sku; }
+    public String getHsnCode() { return hsnCode; }
+    public Double getGstPercentage() { return gstPercentage != null ? gstPercentage : 0.0; }
+    public Double getTaxAmount() { return taxAmount != null ? taxAmount : 0.0; }
     public Integer getQuantity() { return quantity != null ? quantity : 0; }
     public Double getPrice() { return price != null ? price : 0.0; }
     public String getItemNote() { return itemNote; }

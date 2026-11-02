@@ -2,7 +2,10 @@ package com.retail.seller.data.network;
 
 import com.retail.seller.data.model.AuthResponseDto;
 import com.retail.seller.data.model.DashboardSummaryDto;
+import com.retail.seller.data.model.InventoryTransactionDto;
 import com.retail.seller.data.model.LoginRequestDto;
+import com.retail.seller.data.model.PaymentRequestDto;
+import com.retail.seller.data.model.PaymentResponseDto;
 import com.retail.seller.data.model.ProductRequestDto;
 import com.retail.seller.data.model.ProductResponseDto;
 import com.retail.seller.data.model.ProductVariantDto;
@@ -12,6 +15,7 @@ import com.retail.seller.data.model.SaleRequestDto;
 import com.retail.seller.data.model.SaleResponseDto;
 import com.retail.seller.data.model.SellerOrderUpdateRequestDto;
 import com.retail.seller.data.model.StockUpdateRequestDto;
+import com.retail.seller.data.model.UserProfileDto;
 import java.util.List;
 import retrofit2.Call;
 import retrofit2.http.Body;
@@ -26,6 +30,27 @@ public interface ApiService {
 
     @POST("auth/login")
     Call<AuthResponseDto> login(@Body LoginRequestDto request);
+
+    @GET("users/me")
+    Call<UserProfileDto> getMyProfile();
+
+    @PUT("users/me/profile")
+    Call<UserProfileDto> updateMyProfile(@Body UserProfileDto request);
+
+    @GET("admin/users")
+    Call<List<UserProfileDto>> getAllUsersForAdmin();
+
+    @PATCH("admin/users/{id}/role")
+    Call<UserProfileDto> updateUserRole(
+            @Path("id") Long id,
+            @Query("role") String role
+    );
+
+    @PATCH("admin/users/{id}/status")
+    Call<UserProfileDto> updateUserStatus(
+            @Path("id") Long id,
+            @Query("active") boolean active
+    );
 
     @GET("reports/dashboard-summary")
     Call<DashboardSummaryDto> getDashboardSummary();
@@ -63,6 +88,12 @@ public interface ApiService {
             @Body StockUpdateRequestDto request
     );
 
+    @GET("inventory/transactions")
+    Call<List<InventoryTransactionDto>> getInventoryTransactions(
+            @Query("page") int page,
+            @Query("size") int size
+    );
+
     @GET("orders/seller/{sellerId}")
     Call<List<SaleResponseDto>> getSellerOrders(
             @Path("sellerId") Long sellerId,
@@ -87,6 +118,12 @@ public interface ApiService {
             @Path("id") Long id,
             @Query("status") String status
     );
+
+    @POST("payments")
+    Call<PaymentResponseDto> recordPayment(@Body PaymentRequestDto request);
+
+    @GET("payments")
+    Call<List<PaymentResponseDto>> getPayments();
 
     @GET("sales")
     Call<List<SaleResponseDto>> getSales();

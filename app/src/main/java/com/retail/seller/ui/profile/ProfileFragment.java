@@ -17,14 +17,21 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.textfield.TextInputEditText;
 import com.retail.seller.R;
+import com.retail.seller.data.model.UserProfileDto;
+import com.retail.seller.data.network.ApiClient;
 import com.retail.seller.data.network.TokenManager;
 import com.retail.seller.ui.auth.LoginActivity;
+import java.util.List;
 import java.util.Locale;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class ProfileFragment extends Fragment {
 
     private TextView tvInitials, tvSellerName, tvSellerEmail, tvRoleBadge, tvSelectedLanguage;
     private TextInputEditText etBusinessName, etGst, etPhone, etAddress;
+    private MaterialButton btnSaveBusiness;
 
     public ProfileFragment() {
     }
@@ -50,7 +57,7 @@ public class ProfileFragment extends Fragment {
         etPhone = view.findViewById(R.id.et_profile_phone);
         etAddress = view.findViewById(R.id.et_profile_address);
 
-        MaterialButton btnSaveBusiness = view.findViewById(R.id.btn_save_business_profile);
+        btnSaveBusiness = view.findViewById(R.id.btn_save_business_profile);
         MaterialButton btnLogout = view.findViewById(R.id.btn_profile_logout);
         MaterialSwitch switchOrders = view.findViewById(R.id.switch_notify_orders);
         MaterialSwitch switchLowStock = view.findViewById(R.id.switch_notify_low_stock);
@@ -65,8 +72,12 @@ public class ProfileFragment extends Fragment {
 
         tvSellerName.setText(name);
         tvSellerEmail.setText(email + (userId != null ? " • Seller ID #" + userId : ""));
-        tvRoleBadge.setText("VERIFIED B2B " + role);
+        tvRoleBadge.setText(tm.isAdmin() ? "ADMIN • TAP TO MANAGE USERS" : "VERIFIED B2B " + role);
         tvInitials.setText(extractInitials(name));
+
+        if (tm.isAdmin()) {
+            tvRoleBadge.setOnClickListener(v -> openAdminUserManagementDialog());
+        }
 
         etBusinessName.setText(tm.getBusinessName());
         etGst.setText(tm.getGstNumber());
@@ -78,19 +89,9 @@ public class ProfileFragment extends Fragment {
         switchDarkMode.setChecked(tm.isDarkModeEnabled());
         tvSelectedLanguage.setText(tm.getAppLanguage());
 
-        btnSaveBusiness.setOnClickListener(v -> {
-            String bName = etBusinessName.getText() != null ? etBusinessName.getText().toString().trim() : "";
-            String gst = etGst.getText() != null ? etGst.getText().toString().trim().toUpperCase(Locale.ROOT) : "";
-            String phone = etPhone.getText() != null ? etPhone.getText().toString().trim() : "";
-            String addr = etAddress.getText() != null ? etAddress.getText().toString().trim() : "";
+        fetchProfileFromServer(tm);
 
-            if (bName.isEmpty()) {
-                etBusinessName.setError("Business name is required");
-                return;
-            }
-            tm.saveBusinessProfile(bName, gst, addr, phone);
-            Toast.makeText(requireContext(), "Business & GST profile saved!", Toast.LENGTH_SHORT).show();
-        });
+        btnSaveBusiness.setOnClickListener(v -> saveProfileToServer(tm));
 
         switchOrders.setOnCheckedChangeListener((btn, isChecked) -> tm.setOrderNotificationsEnabled(isChecked));
         switchLowStock.setOnCheckedChangeListener((btn, isChecked) -> tm.setLowStockAlertsEnabled(isChecked));
@@ -123,6 +124,141 @@ public class ProfileFragment extends Fragment {
                 })
                 .setNegativeButton("Cancel", null)
                 .show());
+    }
+
+    private void fetchProfileFromServer(TokenManager tm) {
+        ApiClient.getApiService(requireContext()).getMyProfile().enqueue(new Callback<UserProfileDto>() {
+            @Override
+            public void onResponse(@NonNull Call<UserProfileDto> call, @NonNull Response<UserProfileDto> response) {
+                if (!isAdded() || !response.isSuccessful() || response.body() == null) return;
+                UserProfileDto p = response.body();
+                String bName = p.getBusinessName() != null && !p.getBusinessName().isEmpty() ? p.getBusinessName() : tm.getBusinessName();
+                String gst = p.getGstNumber() != null && !p.getGstNumber().isEmpty() ? p.getGstNumber() : tm.getGstNumber();
+                String phone = p.getBusinessPhone() != null && !p.getBusinessPhone().isEmpty() ? p.getBusinessPhone() : tm.getBusinessPhone();
+                String addr = p.getBusinessAddress() != null && !p.getBusinessAddress().isEmpty() ? p.getBusinessAddress() : tm.getBusinessAddress();
+
+                tm.saveBusinessProfile(bName, gst, addr, phone);
+                etBusinessName.setText(bName);
+                etGst.setText(gst);
+                etPhone.setText(phone);
+                etAddress.setText(addr);
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<UserProfileDto> call, @NonNull Throwable t) {
+            }
+        });
+    }
+
+    private void saveProfileToServer(TokenManager tm) {
+        String bName = etBusinessName.getText() != null ? etBusinessName.getText().toString().trim() : "";
+        String gst = etGst.getText() != null ? etGst.getText().toString().trim().toUpperCase(Locale.ROOT) : "";
+        String phone = etPhone.getText() != null ? etPhone.getText().toString().trim() : "";
+        String addr = etAddress.getText() != null ? etAddress.getText().toString().trim() : "";
+
+        if (bName.isEmpty()) {
+            etBusinessName.setError("Business name is required");
+            return;
+        }
+
+        btnSaveBusiness.setEnabled(false);
+        UserProfileDto updateReq = new UserProfileDto(
+                tm.getName() != null ? tm.getName() : bName,
+                bName,
+                gst,
+                phone,
+                addr
+        );
+
+        ApiClient.getApiService(requireContext()).updateMyProfile(updateReq).enqueue(new Callback<UserProfileDto>() {
+            @Override
+            public void onResponse(@NonNull Call<UserProfileDto> call, @NonNull Response<UserProfileDto> response) {
+                if (!isAdded()) return;
+                btnSaveBusiness.setEnabled(true);
+                if (response.isSuccessful() && response.body() != null) {
+                    tm.saveBusinessProfile(bName, gst, addr, phone);
+                    Toast.makeText(requireContext(), "Business & GST profile synced to server!", Toast.LENGTH_SHORT).show();
+                } else {
+                    String err = ApiClient.extractErrorMessage(response, "Could not update profile on server");
+                    Toast.makeText(requireContext(), err, Toast.LENGTH_LONG).show();
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<UserProfileDto> call, @NonNull Throwable t) {
+                if (!isAdded()) return;
+                btnSaveBusiness.setEnabled(true);
+                tm.saveBusinessProfile(bName, gst, addr, phone);
+                Toast.makeText(requireContext(), "Saved locally (offline): " + t.getLocalizedMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void openAdminUserManagementDialog() {
+        ApiClient.getApiService(requireContext()).getAllUsersForAdmin().enqueue(new Callback<List<UserProfileDto>>() {
+            @Override
+            public void onResponse(@NonNull Call<List<UserProfileDto>> call, @NonNull Response<List<UserProfileDto>> response) {
+                if (!isAdded()) return;
+                if (!response.isSuccessful() || response.body() == null || response.body().isEmpty()) {
+                    Toast.makeText(requireContext(), "Could not load platform users.", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                List<UserProfileDto> users = response.body();
+                String[] labels = new String[users.size()];
+                for (int i = 0; i < users.size(); i++) {
+                    UserProfileDto u = users.get(i);
+                    labels[i] = String.format(Locale.getDefault(), "#%d %s (%s) — Role: %s [%s]",
+                            u.getId(), u.getName(), u.getEmail(), u.getRole(),
+                            Boolean.TRUE.equals(u.getActive()) ? "ACTIVE" : "INACTIVE");
+                }
+
+                new AlertDialog.Builder(requireContext())
+                        .setTitle("Platform Users — Tap to Change Role")
+                        .setItems(labels, (d, which) -> showRoleChangePicker(users.get(which)))
+                        .setNegativeButton("Close", null)
+                        .show();
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<List<UserProfileDto>> call, @NonNull Throwable t) {
+                if (!isAdded()) return;
+                Toast.makeText(requireContext(), "Network error: " + t.getLocalizedMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void showRoleChangePicker(UserProfileDto targetUser) {
+        String[] roles = {"SELLER", "BUYER", "ADMIN"};
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Assign Role for " + targetUser.getName())
+                .setItems(roles, (d, which) -> {
+                    String selectedRole = roles[which];
+                    ApiClient.getApiService(requireContext())
+                            .updateUserRole(targetUser.getId(), selectedRole)
+                            .enqueue(new Callback<UserProfileDto>() {
+                                @Override
+                                public void onResponse(@NonNull Call<UserProfileDto> call, @NonNull Response<UserProfileDto> response) {
+                                    if (!isAdded()) return;
+                                    if (response.isSuccessful()) {
+                                        Toast.makeText(requireContext(),
+                                                targetUser.getName() + " updated to " + selectedRole,
+                                                Toast.LENGTH_SHORT).show();
+                                    } else {
+                                        Toast.makeText(requireContext(),
+                                                ApiClient.extractErrorMessage(response, "Failed to update role"),
+                                                Toast.LENGTH_LONG).show();
+                                    }
+                                }
+
+                                @Override
+                                public void onFailure(@NonNull Call<UserProfileDto> call, @NonNull Throwable t) {
+                                    if (!isAdded()) return;
+                                    Toast.makeText(requireContext(), "Network error: " + t.getLocalizedMessage(), Toast.LENGTH_SHORT).show();
+                                }
+                            });
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private String extractInitials(String name) {

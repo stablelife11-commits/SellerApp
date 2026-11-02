@@ -7,10 +7,12 @@ import android.text.InputType;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -18,9 +20,11 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.button.MaterialButton;
 import com.retail.seller.R;
+import com.retail.seller.data.model.PaymentRequestDto;
 import com.retail.seller.data.model.SaleItemDto;
 import com.retail.seller.data.model.SaleResponseDto;
 import com.retail.seller.data.model.SellerOrderUpdateRequestDto;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -31,6 +35,7 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
         void onReturnClick(SaleResponseDto order);
         void onStatusTransitionSelected(SaleResponseDto order, String newStatus);
         void onOrderModified(Long orderId, SellerOrderUpdateRequestDto updateRequest);
+        void onRecordPayment(PaymentRequestDto paymentRequest);
     }
 
     private final Context context;
@@ -70,16 +75,15 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
         holder.tvSaleCustomer.setText(String.format(Locale.getDefault(), "Buyer: %s (%s)",
                 order.getCustomerName() != null ? order.getCustomerName() : "Buyer",
                 order.getCustomerMobile() != null ? order.getCustomerMobile() : "N/A"));
-        holder.tvSaleTotalAmount.setText(String.format(Locale.getDefault(), "₹%.2f", order.getTotalAmount()));
+        holder.tvSaleTotalAmount.setText(String.format(Locale.getDefault(), "₹%.2f", order.getNetPayableAmount()));
 
         String dateStr = order.getSaleDate() != null ? order.getSaleDate().replace("T", " ") : "Recent";
         if (dateStr.length() > 16) dateStr = dateStr.substring(0, 16);
         holder.tvSaleDate.setText(dateStr);
 
         int itemCount = order.getItems() != null ? order.getItems().size() : 0;
-        holder.tvSaleItemsCount.setText(String.format(Locale.getDefault(), "%d item(s) • Details", itemCount));
+        holder.tvSaleItemsCount.setText(String.format(Locale.getDefault(), "%d item(s) • Details & PDF", itemCount));
 
-        // Style Order Status Badge
         if (holder.tvOrderStatusBadge != null) {
             holder.tvOrderStatusBadge.setText(currentStatus);
             switch (currentStatus) {
@@ -98,14 +102,13 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
                     holder.tvOrderStatusBadge.setBackgroundResource(R.drawable.bg_badge_red);
                     holder.tvOrderStatusBadge.setTextColor(ContextCompat.getColor(context, R.color.warning_red));
                     break;
-                default: // PLACED
+                default:
                     holder.tvOrderStatusBadge.setBackgroundResource(R.drawable.bg_badge_amber);
                     holder.tvOrderStatusBadge.setTextColor(ContextCompat.getColor(context, R.color.amber_warning_dark));
                     break;
             }
         }
 
-        // Style Payment Status Badge
         if (holder.tvPaymentStatusBadge != null) {
             holder.tvPaymentStatusBadge.setText(paymentStatus);
             if ("PAID".equals(paymentStatus)) {
@@ -120,7 +123,6 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
             }
         }
 
-        // Direct Accept & Reject actions for PLACED orders
         if (holder.layoutQuickActions != null && holder.btnAcceptOrder != null && holder.btnRejectOrder != null) {
             if ("PLACED".equals(currentStatus)) {
                 holder.layoutQuickActions.setVisibility(View.VISIBLE);
@@ -185,7 +187,12 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
         details.append("📍 Delivery Address: ").append(order.getDeliveryAddress() != null ? order.getDeliveryAddress() : "N/A").append("\n");
         details.append("📌 Order Status: ").append(currentStatus).append("\n");
         details.append("💳 Payment: ").append(order.getPaymentStatus())
-                .append(" (Paid: ₹").append(String.format(Locale.getDefault(), "%.2f", order.getPaidAmount())).append(")\n");
+                .append(" (Paid: ₹").append(String.format(Locale.getDefault(), "%.2f", order.getPaidAmount()));
+        if (order.getRefundCreditAmount() > 0.009) {
+            details.append(" | Refund Credit Due: ₹").append(String.format(Locale.getDefault(), "%.2f", order.getRefundCreditAmount())).append(")\n");
+        } else {
+            details.append(" | Due: ₹").append(String.format(Locale.getDefault(), "%.2f", order.getBalanceDueAmount())).append(")\n");
+        }
         if (order.getSellerRemarks() != null && !order.getSellerRemarks().trim().isEmpty()) {
             details.append("💬 Seller Remarks: ").append(order.getSellerRemarks().trim()).append("\n");
         }
@@ -198,9 +205,18 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
                         .append(" (Variant ID: ").append(item.getVariantId()).append(")\n");
                 String size = item.getSize() != null ? item.getSize() : "Std";
                 String color = item.getColor() != null ? item.getColor() : "Std";
-                details.append("   Size: ").append(size).append(" | Color: ").append(color).append("\n");
+                details.append("   Size: ").append(size).append(" | Color: ").append(color);
+                if (item.getHsnCode() != null && !item.getHsnCode().isEmpty()) {
+                    details.append(" | HSN: ").append(item.getHsnCode());
+                }
+                details.append("\n");
                 details.append("   Qty: ").append(item.getQuantity())
-                        .append(" × ₹").append(String.format(Locale.getDefault(), "%.2f", item.getPrice())).append("\n");
+                        .append(" × ₹").append(String.format(Locale.getDefault(), "%.2f", item.getPrice()));
+                if (item.getGstPercentage() > 0) {
+                    details.append(String.format(Locale.getDefault(), " (GST %.1f%%: ₹%.2f)",
+                            item.getGstPercentage(), item.getTaxAmount()));
+                }
+                details.append("\n");
                 if (item.getItemNote() != null && !item.getItemNote().trim().isEmpty()) {
                     details.append("   📝 Buyer Note: \"").append(item.getItemNote().trim()).append("\"\n");
                 }
@@ -214,10 +230,22 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
             details.append("Subtotal: ₹").append(String.format(Locale.getDefault(), "%.2f", order.getSubtotalAmount())).append("\n");
             details.append("Discount: -₹").append(String.format(Locale.getDefault(), "%.2f", order.getDiscountAmount())).append("\n");
         }
-        details.append("💰 TOTAL AMOUNT: ₹").append(String.format(Locale.getDefault(), "%.2f", order.getTotalAmount()));
+        if (order.getTaxAmount() > 0) {
+            details.append("Included GST Tax: ₹").append(String.format(Locale.getDefault(), "%.2f", order.getTaxAmount())).append("\n");
+        }
+        details.append("Order Total: ₹").append(String.format(Locale.getDefault(), "%.2f", order.getTotalAmount())).append("\n");
+        if (order.getReturnedAmount() > 0) {
+            details.append("Returned Credit: -₹").append(String.format(Locale.getDefault(), "%.2f", order.getReturnedAmount())).append("\n");
+            details.append("💰 NET PAYABLE: ₹").append(String.format(Locale.getDefault(), "%.2f", order.getNetPayableAmount()));
+        } else {
+            details.append("💰 TOTAL AMOUNT: ₹").append(String.format(Locale.getDefault(), "%.2f", order.getTotalAmount()));
+        }
 
         String[] validNextStates = getValidNextStatuses(currentStatus);
         boolean canModify = "PLACED".equalsIgnoreCase(currentStatus) || "CONFIRMED".equalsIgnoreCase(currentStatus);
+        boolean canRecordPayment = !"CANCELLED".equalsIgnoreCase(currentStatus)
+                && !"REJECTED".equalsIgnoreCase(currentStatus)
+                && order.getBalanceDueAmount() > 0.009;
 
         AlertDialog.Builder builder = new AlertDialog.Builder(context)
                 .setTitle("Order #" + orderNum)
@@ -227,18 +255,119 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
         if (validNextStates.length > 0) {
             builder.setPositiveButton("Update Status", (dialog, which) ->
                     showStatusTransitionPicker(order, currentStatus, validNextStates));
+        } else {
+            builder.setPositiveButton("📄 GST Invoice PDF", (dialog, which) ->
+                    InvoicePdfGenerator.generateAndShareInvoice(context, order));
         }
 
-        if (canModify) {
-            builder.setNeutralButton("Modify & Confirm", (dialog, which) ->
-                    showModifyOrderDialog(order));
-        } else if ("DELIVERED".equalsIgnoreCase(currentStatus)) {
-            builder.setNeutralButton("Process Return", (dialog, which) -> {
-                if (actionListener != null) actionListener.onReturnClick(order);
-            });
-        }
+        builder.setNeutralButton("Actions / PDF", (dialog, which) -> {
+            List<String> optionLabels = new ArrayList<>();
+            List<Runnable> optionActions = new ArrayList<>();
+
+            optionLabels.add("📄 Share / Print GST Tax Invoice PDF");
+            optionActions.add(() -> InvoicePdfGenerator.generateAndShareInvoice(context, order));
+
+            if (canRecordPayment) {
+                optionLabels.add(String.format(Locale.getDefault(),
+                        "💳 Record Customer Payment (Due: ₹%.2f)", order.getBalanceDueAmount()));
+                optionActions.add(() -> showRecordPaymentDialog(order));
+            }
+            if (canModify) {
+                optionLabels.add("✏️ Modify Order Items & Discount");
+                optionActions.add(() -> showModifyOrderDialog(order));
+            }
+            if ("DELIVERED".equalsIgnoreCase(currentStatus)) {
+                optionLabels.add("↩️ Process Customer Return");
+                optionActions.add(() -> {
+                    if (actionListener != null) actionListener.onReturnClick(order);
+                });
+            }
+
+            new AlertDialog.Builder(context)
+                    .setTitle("Order #" + orderNum + " Actions")
+                    .setItems(optionLabels.toArray(new String[0]), (d, idx) -> optionActions.get(idx).run())
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        });
 
         builder.show();
+    }
+
+    private void showRecordPaymentDialog(SaleResponseDto order) {
+        if (order.getCustomerId() == null) {
+            Toast.makeText(context, "Customer ID missing for this order.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        LinearLayout root = new LinearLayout(context);
+        root.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (18 * context.getResources().getDisplayMetrics().density);
+        root.setPadding(pad, pad, pad, pad);
+
+        double balanceDue = order.getBalanceDueAmount();
+
+        TextView tvSummary = new TextView(context);
+        tvSummary.setText(String.format(Locale.getDefault(),
+                "Buyer: %s\nNet Payable: ₹%.2f | Paid: ₹%.2f\nRemaining Balance Due: ₹%.2f",
+                order.getCustomerName() != null ? order.getCustomerName() : "Buyer",
+                order.getNetPayableAmount(),
+                order.getPaidAmount(),
+                balanceDue));
+        tvSummary.setPadding(0, 0, 0, 16);
+        root.addView(tvSummary);
+
+        EditText etAmount = new EditText(context);
+        etAmount.setHint("Payment Amount (₹) *");
+        etAmount.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        etAmount.setText(String.format(Locale.US, "%.2f", balanceDue));
+        root.addView(etAmount);
+
+        TextView tvMethodLbl = new TextView(context);
+        tvMethodLbl.setText("\nPayment Method:");
+        tvMethodLbl.setTypeface(null, Typeface.BOLD);
+        root.addView(tvMethodLbl);
+
+        Spinner spMethod = new Spinner(context);
+        String[] methods = {"UPI", "CASH", "NEFT_RTGS", "CHEQUE"};
+        spMethod.setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_spinner_dropdown_item, methods));
+        root.addView(spMethod);
+
+        EditText etNotes = new EditText(context);
+        etNotes.setHint("UTR / Reference / Receipt Note (Optional)");
+        root.addView(etNotes);
+
+        new AlertDialog.Builder(context)
+                .setTitle("Record Payment — Order #" + order.getId())
+                .setView(root)
+                .setPositiveButton("Save Payment", (d, w) -> {
+                    String amtStr = etAmount.getText().toString().trim();
+                    if (amtStr.isEmpty()) return;
+                    try {
+                        double amount = Double.parseDouble(amtStr);
+                        if (amount <= 0 || amount > balanceDue + 0.01) {
+                            Toast.makeText(context, "Enter an amount between ₹0.01 and ₹" + String.format(Locale.getDefault(), "%.2f", balanceDue), Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        String method = spMethod.getSelectedItem().toString();
+                        String notes = etNotes.getText().toString().trim();
+                        PaymentRequestDto req = new PaymentRequestDto(
+                                order.getCustomerId(),
+                                amount,
+                                LocalDate.now().toString(),
+                                method,
+                                "ORDER",
+                                order.getId(),
+                                notes.isEmpty() ? "Recorded via Seller App" : notes
+                        );
+                        if (actionListener != null) {
+                            actionListener.onRecordPayment(req);
+                        }
+                    } catch (NumberFormatException ex) {
+                        Toast.makeText(context, "Invalid payment amount", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void showModifyOrderDialog(SaleResponseDto order) {

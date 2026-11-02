@@ -22,6 +22,18 @@ public class AuthResponseDto {
     @SerializedName("customerId")
     private Long customerId;
 
+    @SerializedName("businessName")
+    private String businessName;
+
+    @SerializedName("gstNumber")
+    private String gstNumber;
+
+    @SerializedName("businessPhone")
+    private String businessPhone;
+
+    @SerializedName("businessAddress")
+    private String businessAddress;
+
     public AuthResponseDto() {
     }
 
@@ -34,51 +46,33 @@ public class AuthResponseDto {
         this.customerId = customerId;
     }
 
-    public String getToken() {
-        return token;
-    }
+    public String getToken() { return token; }
+    public void setToken(String token) { this.token = token; }
 
-    public void setToken(String token) {
-        this.token = token;
-    }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
 
-    public Long getUserId() {
-        return userId;
-    }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 
-    public void setUserId(Long userId) {
-        this.userId = userId;
-    }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
-    public String getEmail() {
-        return email;
-    }
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
 
-    public void setEmail(String email) {
-        this.email = email;
-    }
+    public Long getCustomerId() { return customerId; }
+    public void setCustomerId(Long customerId) { this.customerId = customerId; }
 
-    public String getName() {
-        return name;
-    }
+    public String getBusinessName() { return businessName; }
+    public void setBusinessName(String businessName) { this.businessName = businessName; }
 
-    public void setName(String name) {
-        this.name = name;
-    }
+    public String getGstNumber() { return gstNumber; }
+    public void setGstNumber(String gstNumber) { this.gstNumber = gstNumber; }
 
-    public String getRole() {
-        return role;
-    }
+    public String getBusinessPhone() { return businessPhone; }
+    public void setBusinessPhone(String businessPhone) { this.businessPhone = businessPhone; }
 
-    public void setRole(String role) {
-        this.role = role;
-    }
-
-    public Long getCustomerId() {
-        return customerId;
-    }
-
-    public void setCustomerId(Long customerId) {
-        this.customerId = customerId;
-    }
+    public String getBusinessAddress() { return businessAddress; }
+    public void setBusinessAddress(String businessAddress) { this.businessAddress = businessAddress; }
 }

@@ -2,11 +2,13 @@ package com.retail.seller.data.network;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import androidx.security.crypto.EncryptedSharedPreferences;
+import androidx.security.crypto.MasterKey;
 import com.retail.seller.data.model.AuthResponseDto;
 
 public class TokenManager {
 
-    private static final String PREF_NAME = "retail_seller_session";
+    private static final String PREF_NAME = "retail_seller_session_secure";
     private static final String KEY_TOKEN = "jwt_token";
     private static final String KEY_USER_ID = "user_id";
     private static final String KEY_EMAIL = "user_email";
@@ -27,7 +29,23 @@ public class TokenManager {
     private final SharedPreferences prefs;
 
     private TokenManager(Context context) {
-        prefs = context.getApplicationContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        Context appContext = context.getApplicationContext();
+        SharedPreferences initializedPrefs;
+        try {
+            MasterKey masterKey = new MasterKey.Builder(appContext)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build();
+            initializedPrefs = EncryptedSharedPreferences.create(
+                    appContext,
+                    PREF_NAME,
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            );
+        } catch (Exception e) {
+            initializedPrefs = appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        }
+        prefs = initializedPrefs;
     }
 
     public static synchronized TokenManager getInstance(Context context) {
@@ -97,7 +115,6 @@ public class TokenManager {
         return token != null && !token.trim().isEmpty() && getUserId() != null && isSellerOrAdmin();
     }
 
-    // Seller Business Profile & Preferences
     public void saveBusinessProfile(String businessName, String gstNumber, String address, String phone) {
         prefs.edit()
                 .putString(KEY_BUSINESS_NAME, businessName)
@@ -156,12 +173,12 @@ public class TokenManager {
     }
 
     public void clearSession() {
+        boolean darkMode = isDarkModeEnabled();
+        String language = getAppLanguage();
         prefs.edit()
-                .remove(KEY_TOKEN)
-                .remove(KEY_USER_ID)
-                .remove(KEY_EMAIL)
-                .remove(KEY_NAME)
-                .remove(KEY_ROLE)
+                .clear()
+                .putBoolean(KEY_DARK_MODE, darkMode)
+                .putString(KEY_APP_LANGUAGE, language)
                 .apply();
     }
 }
