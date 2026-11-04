@@ -31,6 +31,9 @@ public interface ApiService {
     @POST("auth/login")
     Call<AuthResponseDto> login(@Body LoginRequestDto request);
 
+    @POST("auth/register")
+    Call<AuthResponseDto> registerSeller(@Body com.retail.seller.data.model.RegisterSellerRequestDto request);
+
     @GET("users/me")
     Call<UserProfileDto> getMyProfile();
 

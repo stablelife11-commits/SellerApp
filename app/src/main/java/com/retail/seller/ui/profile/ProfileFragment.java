@@ -132,10 +132,10 @@ public class ProfileFragment extends Fragment {
             public void onResponse(@NonNull Call<UserProfileDto> call, @NonNull Response<UserProfileDto> response) {
                 if (!isAdded() || !response.isSuccessful() || response.body() == null) return;
                 UserProfileDto p = response.body();
-                String bName = p.getBusinessName() != null && !p.getBusinessName().isEmpty() ? p.getBusinessName() : tm.getBusinessName();
-                String gst = p.getGstNumber() != null && !p.getGstNumber().isEmpty() ? p.getGstNumber() : tm.getGstNumber();
-                String phone = p.getBusinessPhone() != null && !p.getBusinessPhone().isEmpty() ? p.getBusinessPhone() : tm.getBusinessPhone();
-                String addr = p.getBusinessAddress() != null && !p.getBusinessAddress().isEmpty() ? p.getBusinessAddress() : tm.getBusinessAddress();
+                String bName = p.getBusinessName() != null ? p.getBusinessName() : "";
+                String gst = p.getGstNumber() != null ? p.getGstNumber() : "";
+                String phone = p.getBusinessPhone() != null ? p.getBusinessPhone() : "";
+                String addr = p.getBusinessAddress() != null ? p.getBusinessAddress() : "";
 
                 tm.saveBusinessProfile(bName, gst, addr, phone);
                 etBusinessName.setText(bName);

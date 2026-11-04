@@ -96,17 +96,32 @@ public class InvoicePdfGenerator {
         int midX = pageWidth / 2 + 10;
         int startYBlock = y;
 
+// Seller Information
         canvas.drawText("SOLD BY (WHOLESALE SELLER):", leftMargin, y, subHeaderPaint);
         y += 14;
+
         canvas.drawText(sellerName, leftMargin, y, boldPaint);
         y += 13;
-        canvas.drawText("GSTIN: " + sellerGst, leftMargin, y, boldPaint);
+
+// GST Number
+        canvas.drawText(
+                "GSTIN: " + (!sellerGst.isEmpty() ? sellerGst : "Not Provided"),
+                leftMargin,
+                y,
+                boldPaint
+        );
         y += 13;
+
+// Seller Phone
         if (!sellerPhone.isEmpty()) {
             canvas.drawText("Phone: " + sellerPhone, leftMargin, y, bodyPaint);
             y += 13;
         }
-        canvas.drawText(truncate(sellerAddr, 44), leftMargin, y, bodyPaint);
+
+// Seller Address
+        if (!sellerAddr.isEmpty()) {
+            canvas.drawText(truncate(sellerAddr, 44), leftMargin, y, bodyPaint);
+        }
 
         int buyerY = startYBlock;
         canvas.drawText("BILLED & SHIPPED TO (BUYER):", midX, buyerY, subHeaderPaint);

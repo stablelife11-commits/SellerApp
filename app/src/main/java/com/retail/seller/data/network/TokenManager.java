@@ -125,19 +125,20 @@ public class TokenManager {
     }
 
     public String getBusinessName() {
-        return prefs.getString(KEY_BUSINESS_NAME, "Wholesale Garments & Innerwear Hub");
+        String bName = prefs.getString(KEY_BUSINESS_NAME, "");
+        return bName != null && !bName.isEmpty() ? bName : (getName() != null ? getName() : "Wholesale Seller");
     }
 
     public String getGstNumber() {
-        return prefs.getString(KEY_GST_NUMBER, "09AAACH7409R1ZP");
+        return prefs.getString(KEY_GST_NUMBER, "");
     }
 
     public String getBusinessAddress() {
-        return prefs.getString(KEY_BUSINESS_ADDRESS, "Main Wholesale Market, Uttar Pradesh, India");
+        return prefs.getString(KEY_BUSINESS_ADDRESS, "");
     }
 
     public String getBusinessPhone() {
-        return prefs.getString(KEY_BUSINESS_PHONE, "+91 9876543210");
+        return prefs.getString(KEY_BUSINESS_PHONE, "");
     }
 
     public boolean isOrderNotificationsEnabled() {
