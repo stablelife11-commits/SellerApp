@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -39,7 +40,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
@@ -54,7 +58,6 @@ public class AddProductActivity extends AppCompatActivity {
 
     public static final String EXTRA_EDIT_PRODUCT_ID = "EXTRA_EDIT_PRODUCT_ID";
 
-    // TODO: Replace these 2 values with your Cloudinary Cloud Name and Unsigned Upload Preset
     private static final String CLOUDINARY_CLOUD_NAME = com.retail.seller.BuildConfig.CLOUDINARY_CLOUD_NAME;
     private static final String CLOUDINARY_UPLOAD_PRESET = com.retail.seller.BuildConfig.CLOUDINARY_UPLOAD_PRESET;
 
@@ -68,6 +71,10 @@ public class AddProductActivity extends AppCompatActivity {
 
     private Long editingProductId = null;
     private boolean isImageUploading = false;
+
+    // Flags to track manual user overrides vs automatic SKU generation
+    private boolean isManualProductCode = false;
+    private boolean isProgrammaticTextUpdate = false;
 
     private final OkHttpClient cloudUploadClient = new OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
@@ -131,6 +138,8 @@ public class AddProductActivity extends AppCompatActivity {
         btnSave = findViewById(R.id.btn_save_product);
         progressBar = findViewById(R.id.add_product_progress);
 
+        setupProductHeaderAutoSkuWatchers();
+
         btnPickImage.setOnClickListener(v -> {
             if ("YOUR_CLOUD_NAME".equals(CLOUDINARY_CLOUD_NAME)) {
                 Toast.makeText(this,
@@ -148,6 +157,7 @@ public class AddProductActivity extends AppCompatActivity {
             long id = getIntent().getLongExtra(EXTRA_EDIT_PRODUCT_ID, -1L);
             if (id > 0) {
                 editingProductId = id;
+                isManualProductCode = true; // Lock existing product code during edit
                 toolbar.setTitle("Edit Product #" + id);
                 btnSave.setText("Update Product");
                 loadExistingProductForEdit(id);
@@ -156,6 +166,77 @@ public class AddProductActivity extends AppCompatActivity {
         }
 
         addVariantView(null);
+        refreshAllAutoCodes();
+    }
+
+    /**
+     * Watches Brand, Category, and Product Name to live-update Product Style Code and all unlocked Variant SKUs
+     */
+    private void setupProductHeaderAutoSkuWatchers() {
+        if (etSku != null) {
+            etSku.addTextChangedListener(new SmartSkuHelper.SimpleWatcher() {
+                @Override
+                public void afterTextChanged(Editable s) {
+                    if (!isProgrammaticTextUpdate && etSku.hasFocus()) {
+                        // If user clears the box completely, re-enable auto mode
+                        isManualProductCode = !s.toString().trim().isEmpty();
+                    }
+                }
+            });
+        }
+
+        SmartSkuHelper.SimpleWatcher headerWatcher = new SmartSkuHelper.SimpleWatcher() {
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (!isProgrammaticTextUpdate) {
+                    refreshAllAutoCodes();
+                }
+            }
+        };
+
+        if (etName != null) etName.addTextChangedListener(headerWatcher);
+        if (etCategory != null) etCategory.addTextChangedListener(headerWatcher);
+        if (etBrand != null) etBrand.addTextChangedListener(headerWatcher);
+    }
+
+    /**
+     * Updates the main Product Code (if unlocked) and all Variant SKUs (that haven't been manually edited)
+     */
+    private void refreshAllAutoCodes() {
+        isProgrammaticTextUpdate = true;
+        try {
+            String brand = getTextSafe(etBrand);
+            String category = getTextSafe(etCategory);
+            String name = getTextSafe(etName);
+
+            if (etSku != null && !isManualProductCode) {
+                etSku.setText(SmartSkuHelper.generateProductCode(brand, category, name));
+            }
+
+            int count = layoutVariantsContainer.getChildCount();
+            for (int i = 0; i < count; i++) {
+                View variantView = layoutVariantsContainer.getChildAt(i);
+                Boolean isVariantSkuLocked = (Boolean) variantView.getTag(R.id.et_var_sku);
+                if (!Boolean.TRUE.equals(isVariantSkuLocked)) {
+                    TextInputEditText etVarSku = variantView.findViewById(R.id.et_var_sku);
+                    TextInputEditText etVarSize = variantView.findViewById(R.id.et_var_size);
+                    TextInputEditText etVarColor = variantView.findViewById(R.id.et_var_color);
+
+                    String autoSku = SmartSkuHelper.generateVariantSku(
+                            brand,
+                            category,
+                            name,
+                            getTextSafe(etVarColor),
+                            getTextSafe(etVarSize)
+                    );
+                    if (etVarSku != null) {
+                        etVarSku.setText(autoSku);
+                    }
+                }
+            }
+        } finally {
+            isProgrammaticTextUpdate = false;
+        }
     }
 
     private void startPhotoCrop(Uri sourceUri) {
@@ -321,11 +402,15 @@ public class AddProductActivity extends AppCompatActivity {
     }
 
     private void populateProductForm(ProductResponseDto product) {
+        isProgrammaticTextUpdate = true;
+        isManualProductCode = true;
+
         etName.setText(product.getName());
         etSku.setText(product.getProductCode());
         etCategory.setText(product.getCategory());
         etBrand.setText(product.getBrand());
         etDescription.setText(product.getDescription());
+        isProgrammaticTextUpdate = false;
 
         if (product.getImageUrls() != null && !product.getImageUrls().isEmpty()) {
             String existingUrl = product.getImageUrls().get(0);
@@ -355,18 +440,21 @@ public class AddProductActivity extends AppCompatActivity {
         LayoutInflater inflater = LayoutInflater.from(this);
         View variantView = inflater.inflate(R.layout.item_variant_input_form, layoutVariantsContainer, false);
 
+        TextInputEditText etVarSku = variantView.findViewById(R.id.et_var_sku);
+        TextInputEditText etVarSize = variantView.findViewById(R.id.et_var_size);
+        TextInputEditText etVarColor = variantView.findViewById(R.id.et_var_color);
+        TextInputEditText etVarSellPrice = variantView.findViewById(R.id.et_var_sell_price);
+        TextInputEditText etVarPurchasePrice = variantView.findViewById(R.id.et_var_purchase_price);
+        TextInputEditText etVarStock = variantView.findViewById(R.id.et_var_stock);
+        TextInputEditText etVarMoq = variantView.findViewById(R.id.et_var_moq);
+        TextInputEditText etVarPackSize = variantView.findViewById(R.id.et_var_pack_size);
+        TextInputEditText etVarHsn = variantView.findViewById(R.id.et_var_hsn);
+        TextInputEditText etVarGst = variantView.findViewById(R.id.et_var_gst);
+
         if (existingVariant != null) {
             variantView.setTag(existingVariant.getId());
-            TextInputEditText etVarSku = variantView.findViewById(R.id.et_var_sku);
-            TextInputEditText etVarSize = variantView.findViewById(R.id.et_var_size);
-            TextInputEditText etVarColor = variantView.findViewById(R.id.et_var_color);
-            TextInputEditText etVarSellPrice = variantView.findViewById(R.id.et_var_sell_price);
-            TextInputEditText etVarPurchasePrice = variantView.findViewById(R.id.et_var_purchase_price);
-            TextInputEditText etVarStock = variantView.findViewById(R.id.et_var_stock);
-            TextInputEditText etVarMoq = variantView.findViewById(R.id.et_var_moq);
-            TextInputEditText etVarPackSize = variantView.findViewById(R.id.et_var_pack_size);
-            TextInputEditText etVarHsn = variantView.findViewById(R.id.et_var_hsn);
-            TextInputEditText etVarGst = variantView.findViewById(R.id.et_var_gst);
+            // Lock existing variant SKU so editing product doesn't accidentally overwrite saved barcode/SKU
+            variantView.setTag(R.id.et_var_sku, Boolean.TRUE);
 
             etVarSku.setText(existingVariant.getSku());
             etVarSize.setText(existingVariant.getSize());
@@ -380,7 +468,78 @@ public class AddProductActivity extends AppCompatActivity {
                 etVarHsn.setText(existingVariant.getHsnCode());
             }
             etVarGst.setText(String.valueOf(existingVariant.getGstPercentage()));
+        } else {
+            // New variant row: Unlocked auto-SKU by default
+            variantView.setTag(R.id.et_var_sku, Boolean.FALSE);
+
+            // Copy common defaults (Color, Price, MOQ, Pack, HSN, GST) from previous row if available
+            if (layoutVariantsContainer.getChildCount() > 0) {
+                View prevRow = layoutVariantsContainer.getChildAt(layoutVariantsContainer.getChildCount() - 1);
+                TextInputEditText prevColor = prevRow.findViewById(R.id.et_var_color);
+                TextInputEditText prevSell = prevRow.findViewById(R.id.et_var_sell_price);
+                TextInputEditText prevBuy = prevRow.findViewById(R.id.et_var_purchase_price);
+                TextInputEditText prevStock = prevRow.findViewById(R.id.et_var_stock);
+                TextInputEditText prevMoq = prevRow.findViewById(R.id.et_var_moq);
+                TextInputEditText prevPack = prevRow.findViewById(R.id.et_var_pack_size);
+                TextInputEditText prevHsn = prevRow.findViewById(R.id.et_var_hsn);
+                TextInputEditText prevGst = prevRow.findViewById(R.id.et_var_gst);
+
+                etVarColor.setText(getTextSafe(prevColor));
+                etVarSellPrice.setText(getTextSafe(prevSell));
+                etVarPurchasePrice.setText(getTextSafe(prevBuy));
+                etVarStock.setText(getTextSafe(prevStock));
+                etVarMoq.setText(getTextSafe(prevMoq));
+                etVarPackSize.setText(getTextSafe(prevPack));
+                etVarHsn.setText(getTextSafe(prevHsn));
+                etVarGst.setText(getTextSafe(prevGst));
+            }
+
+            String initialAutoSku = SmartSkuHelper.generateVariantSku(
+                    getTextSafe(etBrand),
+                    getTextSafe(etCategory),
+                    getTextSafe(etName),
+                    getTextSafe(etVarColor),
+                    getTextSafe(etVarSize)
+            );
+            etVarSku.setText(initialAutoSku);
         }
+
+        // If seller manually edits this variant's SKU box, lock it; if cleared, unlock it back to auto mode
+        if (etVarSku != null) {
+            etVarSku.addTextChangedListener(new SmartSkuHelper.SimpleWatcher() {
+                @Override
+                public void afterTextChanged(Editable s) {
+                    if (!isProgrammaticTextUpdate && etVarSku.hasFocus()) {
+                        boolean locked = !s.toString().trim().isEmpty();
+                        variantView.setTag(R.id.et_var_sku, locked);
+                    }
+                }
+            });
+        }
+
+        // When Size or Color changes in this row, immediately update its SKU (if unlocked)
+        SmartSkuHelper.SimpleWatcher rowWatcher = new SmartSkuHelper.SimpleWatcher() {
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (isProgrammaticTextUpdate) return;
+                Boolean isLocked = (Boolean) variantView.getTag(R.id.et_var_sku);
+                if (!Boolean.TRUE.equals(isLocked) && etVarSku != null) {
+                    isProgrammaticTextUpdate = true;
+                    String updatedSku = SmartSkuHelper.generateVariantSku(
+                            getTextSafe(etBrand),
+                            getTextSafe(etCategory),
+                            getTextSafe(etName),
+                            getTextSafe(etVarColor),
+                            getTextSafe(etVarSize)
+                    );
+                    etVarSku.setText(updatedSku);
+                    isProgrammaticTextUpdate = false;
+                }
+            }
+        };
+
+        if (etVarSize != null) etVarSize.addTextChangedListener(rowWatcher);
+        if (etVarColor != null) etVarColor.addTextChangedListener(rowWatcher);
 
         ImageButton btnRemove = variantView.findViewById(R.id.btn_remove_variant);
         btnRemove.setOnClickListener(v -> {
@@ -401,18 +560,25 @@ public class AddProductActivity extends AppCompatActivity {
         }
 
         String name = getTextSafe(etName);
-        String productCode = getTextSafe(etSku);
         String category = getTextSafe(etCategory);
         String brand = getTextSafe(etBrand);
         String description = getTextSafe(etDescription);
         String imageUrl = getTextSafe(etImageUrl);
 
-        if (TextUtils.isEmpty(name) || TextUtils.isEmpty(productCode) || TextUtils.isEmpty(category)) {
-            Toast.makeText(this, "Product Name, Product Code, and Category are required.", Toast.LENGTH_SHORT).show();
+        if (TextUtils.isEmpty(name) || TextUtils.isEmpty(category)) {
+            Toast.makeText(this, "Product Name and Category are required.", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        // Auto-generate Product Code if left blank
+        String productCode = getTextSafe(etSku).toUpperCase(Locale.ROOT);
+        if (TextUtils.isEmpty(productCode)) {
+            productCode = SmartSkuHelper.generateProductCode(brand, category, name);
+            etSku.setText(productCode);
+        }
+
         List<ProductVariantRequestDto> variantsList = new ArrayList<>();
+        Set<String> usedBatchSkus = new HashSet<>();
         int variantCount = layoutVariantsContainer.getChildCount();
 
         for (int i = 0; i < variantCount; i++) {
@@ -430,9 +596,26 @@ public class AddProductActivity extends AppCompatActivity {
             TextInputEditText etVarHsn = view.findViewById(R.id.et_var_hsn);
             TextInputEditText etVarGst = view.findViewById(R.id.et_var_gst);
 
-            String vSku = getTextSafe(etVarSku);
-            String vSize = getTextSafe(etVarSize);
+            String rawSize = getTextSafe(etVarSize);
+            String vSize = SmartSkuHelper.normalizeSize(rawSize); // "85cm" -> "85"
             String vColor = getTextSafe(etVarColor);
+            if (TextUtils.isEmpty(vColor)) {
+                vColor = "Standard";
+            }
+
+            // Auto-generate SKU if left blank, and prevent duplicate SKUs inside the same form submission
+            String baseSku = getTextSafe(etVarSku).toUpperCase(Locale.ROOT).replaceAll("\\s+", "-");
+            if (TextUtils.isEmpty(baseSku)) {
+                baseSku = SmartSkuHelper.generateVariantSku(brand, category, name, vColor, vSize);
+            }
+            String vSku = baseSku;
+            int suffix = 1;
+            while (usedBatchSkus.contains(vSku)) {
+                vSku = baseSku + "-" + suffix;
+                suffix++;
+            }
+            usedBatchSkus.add(vSku);
+
             String vSellStr = getTextSafe(etVarSellPrice);
             String vPurchaseStr = getTextSafe(etVarPurchasePrice);
             String vStockStr = getTextSafe(etVarStock);
@@ -441,8 +624,8 @@ public class AddProductActivity extends AppCompatActivity {
             String vHsn = getTextSafe(etVarHsn);
             String vGstStr = getTextSafe(etVarGst);
 
-            if (TextUtils.isEmpty(vSku) || TextUtils.isEmpty(vSellStr) || TextUtils.isEmpty(vStockStr)) {
-                Toast.makeText(this, "Variant #" + (i + 1) + ": SKU, Selling Price, and Stock are required.", Toast.LENGTH_LONG).show();
+            if (TextUtils.isEmpty(vSellStr) || TextUtils.isEmpty(vStockStr)) {
+                Toast.makeText(this, "Variant #" + (i + 1) + ": Selling Price and Stock are required.", Toast.LENGTH_LONG).show();
                 return;
             }
 

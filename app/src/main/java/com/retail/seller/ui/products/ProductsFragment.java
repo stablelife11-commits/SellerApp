@@ -208,6 +208,7 @@ public class ProductsFragment extends Fragment {
     private void applyFilters() {
         String query = etSearchProducts != null && etSearchProducts.getText() != null
                 ? etSearchProducts.getText().toString().trim().toLowerCase(Locale.ROOT) : "";
+        String normalizedSizeQuery = SmartSkuHelper.normalizeSize(query).toLowerCase(Locale.ROOT);
 
         List<ProductResponseDto> filtered = new ArrayList<>();
         for (ProductResponseDto p : allSellerProducts) {
@@ -223,17 +224,23 @@ public class ProductsFragment extends Fragment {
                     || (p.getCategory() != null && p.getCategory().toLowerCase(Locale.ROOT).contains(query))
                     || (p.getBrand() != null && p.getBrand().toLowerCase(Locale.ROOT).contains(query));
 
-            boolean matchesVariantSku = false;
+            boolean matchesVariant = false;
             if (p.getVariants() != null) {
                 for (ProductVariantDto v : p.getVariants()) {
-                    if (v.getSku() != null && v.getSku().toLowerCase(Locale.ROOT).contains(query)) {
-                        matchesVariantSku = true;
+                    boolean skuMatch = v.getSku() != null && v.getSku().toLowerCase(Locale.ROOT).contains(query);
+                    boolean colorMatch = v.getColor() != null && v.getColor().toLowerCase(Locale.ROOT).contains(query);
+                    boolean sizeMatch = v.getSize() != null && (
+                            v.getSize().toLowerCase(Locale.ROOT).contains(query)
+                                    || (!normalizedSizeQuery.equals("fs") && v.getSize().equalsIgnoreCase(normalizedSizeQuery))
+                    );
+                    if (skuMatch || colorMatch || sizeMatch) {
+                        matchesVariant = true;
                         break;
                     }
                 }
             }
 
-            if (matchesProduct || matchesVariantSku) {
+            if (matchesProduct || matchesVariant) {
                 filtered.add(p);
             }
         }
