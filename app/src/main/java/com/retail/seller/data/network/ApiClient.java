@@ -1,10 +1,10 @@
 package com.retail.seller.data.network;
 
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.retail.seller.BuildConfig;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import okhttp3.OkHttpClient;
@@ -20,21 +20,25 @@ public class ApiClient {
 
     public static synchronized ApiService getApiService(Context context) {
         if (apiService == null) {
+            // Bina BuildConfig ke debug mode check karne ka tareeka:
+            boolean isDebug = (context.getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+
             HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
-            logging.setLevel(BuildConfig.DEBUG
+            logging.setLevel(isDebug
                     ? HttpLoggingInterceptor.Level.BODY
                     : HttpLoggingInterceptor.Level.NONE);
 
             OkHttpClient client = new OkHttpClient.Builder()
-                    .connectTimeout(20, TimeUnit.SECONDS)
-                    .readTimeout(20, TimeUnit.SECONDS)
-                    .writeTimeout(20, TimeUnit.SECONDS)
+                    .connectTimeout(90, TimeUnit.SECONDS)
+                    .readTimeout(90, TimeUnit.SECONDS)
+                    .writeTimeout(90, TimeUnit.SECONDS)
+                    .retryOnConnectionFailure(true)
                     .addInterceptor(new AuthInterceptor(context))
                     .addInterceptor(logging)
                     .build();
 
             Retrofit retrofit = new Retrofit.Builder()
-                    .baseUrl(BuildConfig.BASE_URL)
+                    .baseUrl("https://retail-flow-backend-xqud.onrender.com/api/v1/")
                     .client(client)
                     .addConverterFactory(GsonConverterFactory.create())
                     .build();
@@ -49,8 +53,8 @@ public class ApiClient {
         if (response.code() == 429) {
             return "Too many attempts. Please wait a minute and try again.";
         }
-        try {
-            ResponseBody errorBody = response.errorBody();
+        // try-with-resources laga diya gaya hai taaki warning hat jaye
+        try (ResponseBody errorBody = response.errorBody()) {
             if (errorBody != null) {
                 String raw = errorBody.string();
                 JsonElement element = JsonParser.parseString(raw);

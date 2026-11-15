@@ -21,13 +21,20 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.button.MaterialButton;
 import com.retail.seller.R;
 import com.retail.seller.data.model.PaymentRequestDto;
+import com.retail.seller.data.model.ProductResponseDto;
+import com.retail.seller.data.model.ProductVariantDto;
 import com.retail.seller.data.model.SaleItemDto;
 import com.retail.seller.data.model.SaleResponseDto;
 import com.retail.seller.data.model.SellerOrderUpdateRequestDto;
+import com.retail.seller.data.network.ApiClient;
+import com.retail.seller.data.network.TokenManager;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder> {
 
@@ -66,15 +73,26 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
     @Override
     public void onBindViewHolder(@NonNull SaleViewHolder holder, int position) {
         SaleResponseDto order = sales.get(position);
+        boolean isAdmin = TokenManager.getInstance(context).isAdmin();
 
         String orderNum = order.getSaleNumber() != null ? order.getSaleNumber() : String.valueOf(order.getId());
         String currentStatus = order.getStatus().toUpperCase(Locale.ROOT);
         String paymentStatus = order.getPaymentStatus().toUpperCase(Locale.ROOT);
 
         holder.tvSaleNumber.setText(String.format(Locale.getDefault(), "Order #%s", orderNum));
-        holder.tvSaleCustomer.setText(String.format(Locale.getDefault(), "Buyer: %s (%s)",
-                order.getCustomerName() != null ? order.getCustomerName() : "Buyer",
-                order.getCustomerMobile() != null ? order.getCustomerMobile() : "N/A"));
+
+        if (isAdmin) {
+            String sellerLabel = order.getSellerBusinessName() != null && !order.getSellerBusinessName().isEmpty()
+                    ? order.getSellerBusinessName() + " (#" + order.getSellerId() + ")"
+                    : "Seller #" + order.getSellerId();
+            holder.tvSaleCustomer.setText(String.format(Locale.getDefault(), "Buyer: %s (%s)\nAssigned: %s",
+                    order.getCustomerName() != null ? order.getCustomerName() : "Buyer",
+                    order.getCustomerMobile() != null ? order.getCustomerMobile() : "N/A",
+                    sellerLabel));
+        } else {
+            holder.tvSaleCustomer.setText(String.format(Locale.getDefault(), "Order #%s • Admin Verified Order", orderNum));
+        }
+
         holder.tvSaleTotalAmount.setText(String.format(Locale.getDefault(), "₹%.2f", order.getNetPayableAmount()));
 
         String dateStr = order.getSaleDate() != null ? order.getSaleDate().replace("T", " ") : "Recent";
@@ -85,7 +103,7 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
         holder.tvSaleItemsCount.setText(String.format(Locale.getDefault(), "%d item(s) • Details & PDF", itemCount));
 
         if (holder.tvOrderStatusBadge != null) {
-            holder.tvOrderStatusBadge.setText(currentStatus);
+            holder.tvOrderStatusBadge.setText("PLACED".equals(currentStatus) ? "AWAITING ADMIN" : currentStatus);
             switch (currentStatus) {
                 case "DELIVERED":
                     holder.tvOrderStatusBadge.setBackgroundResource(R.drawable.bg_badge_emerald);
@@ -124,14 +142,12 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
         }
 
         if (holder.layoutQuickActions != null && holder.btnAcceptOrder != null && holder.btnRejectOrder != null) {
-            if ("PLACED".equals(currentStatus)) {
+            if ("PLACED".equals(currentStatus) && isAdmin) {
                 holder.layoutQuickActions.setVisibility(View.VISIBLE);
-                holder.btnAcceptOrder.setText("Accept Order");
+                holder.btnAcceptOrder.setText("Review, Route & Approve");
                 holder.btnRejectOrder.setVisibility(View.VISIBLE);
 
-                holder.btnAcceptOrder.setOnClickListener(v -> {
-                    if (actionListener != null) actionListener.onStatusTransitionSelected(order, "CONFIRMED");
-                });
+                holder.btnAcceptOrder.setOnClickListener(v -> showModifyOrderDialog(order));
                 holder.btnRejectOrder.setOnClickListener(v -> new AlertDialog.Builder(context)
                         .setTitle("Reject Order #" + orderNum)
                         .setMessage("Are you sure you want to reject this order? Reserved inventory stock will be automatically released.")
@@ -181,10 +197,19 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
     }
 
     private void showOrderDetailsAndWorkflowDialog(SaleResponseDto order, String orderNum, String currentStatus) {
+        boolean isAdmin = TokenManager.getInstance(context).isAdmin();
         StringBuilder details = new StringBuilder();
-        details.append("👤 Buyer: ").append(order.getCustomerName() != null ? order.getCustomerName() : "N/A").append("\n");
-        details.append("📞 Mobile: ").append(order.getCustomerMobile() != null ? order.getCustomerMobile() : "N/A").append("\n");
-        details.append("📍 Delivery Address: ").append(order.getDeliveryAddress() != null ? order.getDeliveryAddress() : "N/A").append("\n");
+
+        if (isAdmin) {
+            details.append("👤 Buyer: ").append(order.getCustomerName() != null ? order.getCustomerName() : "N/A").append("\n");
+            details.append("📞 Mobile: ").append(order.getCustomerMobile() != null ? order.getCustomerMobile() : "N/A").append("\n");
+            details.append("📍 Delivery Address: ").append(order.getDeliveryAddress() != null ? order.getDeliveryAddress() : "N/A").append("\n");
+            details.append("🏪 Assigned Seller: ").append(order.getSellerBusinessName() != null ? order.getSellerBusinessName() : "Seller")
+                    .append(" (ID #").append(order.getSellerId()).append(")\n");
+        } else {
+            details.append("📦 Order Reference: #").append(orderNum).append("\n");
+        }
+
         details.append("📌 Order Status: ").append(currentStatus).append("\n");
         details.append("💳 Payment: ").append(order.getPaymentStatus())
                 .append(" (Paid: ₹").append(String.format(Locale.getDefault(), "%.2f", order.getPaidAmount()));
@@ -194,7 +219,7 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
             details.append(" | Due: ₹").append(String.format(Locale.getDefault(), "%.2f", order.getBalanceDueAmount())).append(")\n");
         }
         if (order.getSellerRemarks() != null && !order.getSellerRemarks().trim().isEmpty()) {
-            details.append("💬 Seller Remarks: ").append(order.getSellerRemarks().trim()).append("\n");
+            details.append("💬 Remarks: ").append(order.getSellerRemarks().trim()).append("\n");
         }
         details.append("--------------------------------------------------\n");
 
@@ -218,7 +243,7 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
                 }
                 details.append("\n");
                 if (item.getItemNote() != null && !item.getItemNote().trim().isEmpty()) {
-                    details.append("   📝 Buyer Note: \"").append(item.getItemNote().trim()).append("\"\n");
+                    details.append("   📝 Note: \"").append(item.getItemNote().trim()).append("\"\n");
                 }
                 details.append("\n");
             }
@@ -241,9 +266,12 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
             details.append("💰 TOTAL AMOUNT: ₹").append(String.format(Locale.getDefault(), "%.2f", order.getTotalAmount()));
         }
 
-        String[] validNextStates = getValidNextStatuses(currentStatus);
-        boolean canModify = "PLACED".equalsIgnoreCase(currentStatus) || "CONFIRMED".equalsIgnoreCase(currentStatus);
-        boolean canRecordPayment = !"CANCELLED".equalsIgnoreCase(currentStatus)
+        String[] validNextStates = getValidNextStatuses(currentStatus, isAdmin);
+        boolean canModify = isAdmin
+                ? ("PLACED".equalsIgnoreCase(currentStatus) || "CONFIRMED".equalsIgnoreCase(currentStatus))
+                : "CONFIRMED".equalsIgnoreCase(currentStatus);
+        boolean canRecordPayment = isAdmin
+                && !"CANCELLED".equalsIgnoreCase(currentStatus)
                 && !"REJECTED".equalsIgnoreCase(currentStatus)
                 && order.getBalanceDueAmount() > 0.009;
 
@@ -273,7 +301,9 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
                 optionActions.add(() -> showRecordPaymentDialog(order));
             }
             if (canModify) {
-                optionLabels.add("✏️ Modify Order Items & Discount");
+                optionLabels.add(isAdmin
+                        ? "✏️ Approve / Route Items to Sellers & Modify"
+                        : "✏️ Modify Order Items & Discount");
                 optionActions.add(() -> showModifyOrderDialog(order));
             }
             if ("DELIVERED".equalsIgnoreCase(currentStatus)) {
@@ -371,6 +401,7 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
     }
 
     private void showModifyOrderDialog(SaleResponseDto order) {
+        boolean isAdmin = TokenManager.getInstance(context).isAdmin();
         ScrollView scrollView = new ScrollView(context);
         LinearLayout root = new LinearLayout(context);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -378,14 +409,15 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
         root.setPadding(pad, pad, pad, pad);
         scrollView.addView(root);
 
-        TextView lblAddress = new TextView(context);
-        lblAddress.setText("Delivery Address:");
-        lblAddress.setTypeface(null, Typeface.BOLD);
-        root.addView(lblAddress);
-
         EditText etAddress = new EditText(context);
         etAddress.setText(order.getDeliveryAddress() != null ? order.getDeliveryAddress() : "");
-        root.addView(etAddress);
+        if (isAdmin) {
+            TextView lblAddress = new TextView(context);
+            lblAddress.setText("Delivery Address:");
+            lblAddress.setTypeface(null, Typeface.BOLD);
+            root.addView(lblAddress);
+            root.addView(etAddress);
+        }
 
         TextView lblDiscount = new TextView(context);
         lblDiscount.setText("Overall Bill Discount (₹):");
@@ -398,17 +430,19 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
         root.addView(etDiscount);
 
         TextView lblRemarks = new TextView(context);
-        lblRemarks.setText("Seller Remarks (Visible to Buyer):");
+        lblRemarks.setText("Remarks / Dispatch Note:");
         lblRemarks.setTypeface(null, Typeface.BOLD);
         root.addView(lblRemarks);
 
         EditText etRemarks = new EditText(context);
-        etRemarks.setHint("e.g., Adjusted qty & applied special wholesale discount");
+        etRemarks.setHint("e.g., Approved by Admin & routed to seller");
         etRemarks.setText(order.getSellerRemarks() != null ? order.getSellerRemarks() : "");
         root.addView(etRemarks);
 
         TextView lblItems = new TextView(context);
-        lblItems.setText("\nOrder Line Items (Set Qty = 0 to remove item):");
+        lblItems.setText(isAdmin
+                ? "\nOrder Items (Tap 'Select Seller & Variant' to route to another Seller):"
+                : "\nOrder Line Items (Set Qty = 0 to remove item):");
         lblItems.setTypeface(null, Typeface.BOLD);
         root.addView(lblItems);
 
@@ -419,22 +453,22 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
         List<ItemRowHolder> rowHolders = new ArrayList<>();
         if (order.getItems() != null) {
             for (SaleItemDto item : order.getItems()) {
-                addEditableItemRow(itemsContainer, rowHolders, item);
+                addEditableItemRow(itemsContainer, rowHolders, item, isAdmin);
             }
         }
 
         Button btnAddExtraItem = new Button(context);
-        btnAddExtraItem.setText("+ Add Another Variant ID to Order");
+        btnAddExtraItem.setText("+ Add Another Product Variant to Order");
         btnAddExtraItem.setOnClickListener(v -> {
             SaleItemDto blank = new SaleItemDto(null, "Additional Variant Item", "", "", "", 1, 0.0, "");
-            addEditableItemRow(itemsContainer, rowHolders, blank);
+            addEditableItemRow(itemsContainer, rowHolders, blank, isAdmin);
         });
         root.addView(btnAddExtraItem);
 
         new AlertDialog.Builder(context)
-                .setTitle("Modify Order #" + order.getId())
+                .setTitle(isAdmin ? "Admin Review & Seller Routing — Order #" + order.getId() : "Modify Order #" + order.getId())
                 .setView(scrollView)
-                .setPositiveButton("Save & Confirm Order", (d, w) ->
+                .setPositiveButton("Approve & Send to Seller(s)", (d, w) ->
                         submitModifiedOrder(order.getId(), etAddress, etDiscount, etRemarks, rowHolders, true))
                 .setNeutralButton("Save Changes Only", (d, w) ->
                         submitModifiedOrder(order.getId(), etAddress, etDiscount, etRemarks, rowHolders, false))
@@ -442,7 +476,7 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
                 .show();
     }
 
-    private void addEditableItemRow(LinearLayout container, List<ItemRowHolder> rowHolders, SaleItemDto item) {
+    private void addEditableItemRow(LinearLayout container, List<ItemRowHolder> rowHolders, SaleItemDto item, boolean isAdmin) {
         LinearLayout row = new LinearLayout(context);
         row.setOrientation(LinearLayout.VERTICAL);
         row.setPadding(0, 16, 0, 16);
@@ -455,7 +489,7 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
 
         if (item.getItemNote() != null && !item.getItemNote().isEmpty()) {
             TextView tvNote = new TextView(context);
-            tvNote.setText("  📝 Buyer Note: \"" + item.getItemNote() + "\"");
+            tvNote.setText("  📝 Note: \"" + item.getItemNote() + "\"");
             row.addView(tvNote);
         }
 
@@ -486,13 +520,80 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
 
         row.addView(qtyPriceRow);
 
+        if (isAdmin) {
+            Button btnPickSellerVariant = new Button(context);
+            btnPickSellerVariant.setText("🔄 Select Seller & Variant");
+            btnPickSellerVariant.setAllCaps(false);
+            btnPickSellerVariant.setOnClickListener(v ->
+                    openSellerVariantPicker(title, etVarId, etPrice));
+            row.addView(btnPickSellerVariant);
+        }
+
         EditText etItemNote = new EditText(context);
-        etItemNote.setHint("Item Note (Visible to Buyer)");
+        etItemNote.setHint("Item Note (Visible on Order)");
         etItemNote.setText(item.getItemNote() != null ? item.getItemNote() : "");
         row.addView(etItemNote);
 
         container.addView(row);
         rowHolders.add(new ItemRowHolder(etVarId, etQty, etPrice, etItemNote));
+    }
+
+    private void openSellerVariantPicker(TextView tvTitle, EditText etVarId, EditText etPrice) {
+        ApiClient.getApiService(context).getMyProducts(0, 100).enqueue(new Callback<List<ProductResponseDto>>() {
+            @Override
+            public void onResponse(@NonNull Call<List<ProductResponseDto>> call, @NonNull Response<List<ProductResponseDto>> response) {
+                if (!response.isSuccessful() || response.body() == null || response.body().isEmpty()) {
+                    Toast.makeText(context, "Could not load seller products.", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                List<String> labels = new ArrayList<>();
+                List<ProductVariantDto> variants = new ArrayList<>();
+                List<ProductResponseDto> parentProducts = new ArrayList<>();
+
+                for (ProductResponseDto p : response.body()) {
+                    if (p.getVariants() != null) {
+                        for (ProductVariantDto v : p.getVariants()) {
+                            labels.add(String.format(Locale.getDefault(),
+                                    "Seller #%d • %s (%s | %s)\nSKU: %s | ₹%.2f | Stock: %d",
+                                    p.getSellerId() != null ? p.getSellerId() : 0L,
+                                    p.getName(),
+                                    v.getSize() != null ? v.getSize() : "Std",
+                                    v.getColor() != null ? v.getColor() : "Std",
+                                    v.getSku(),
+                                    v.getSellingPrice(),
+                                    v.getStockQuantity()));
+                            variants.add(v);
+                            parentProducts.add(p);
+                        }
+                    }
+                }
+
+                if (variants.isEmpty()) {
+                    Toast.makeText(context, "No variants available.", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                new AlertDialog.Builder(context)
+                        .setTitle("Assign Product Variant from Any Seller")
+                        .setItems(labels.toArray(new String[0]), (d, which) -> {
+                            ProductVariantDto chosen = variants.get(which);
+                            ProductResponseDto parent = parentProducts.get(which);
+                            etVarId.setText(String.valueOf(chosen.getId()));
+                            etPrice.setText(String.valueOf(chosen.getSellingPrice()));
+                            tvTitle.setText(String.format(Locale.getDefault(),
+                                    "• [Seller #%d] %s (%s %s)",
+                                    parent.getSellerId(), parent.getName(), chosen.getSize(), chosen.getColor()));
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<List<ProductResponseDto>> call, @NonNull Throwable t) {
+                Toast.makeText(context, "Network error: " + t.getLocalizedMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void submitModifiedOrder(Long orderId, EditText etAddress, EditText etDiscount,
@@ -560,11 +661,11 @@ public class SaleAdapter extends RecyclerView.Adapter<SaleAdapter.SaleViewHolder
                 .show();
     }
 
-    private String[] getValidNextStatuses(String currentStatus) {
+    private String[] getValidNextStatuses(String currentStatus, boolean isAdmin) {
         if (currentStatus == null) return new String[0];
         switch (currentStatus.toUpperCase(Locale.ROOT)) {
             case "PLACED":
-                return new String[]{"CONFIRMED", "PROCESSING", "REJECTED", "CANCELLED"};
+                return isAdmin ? new String[]{"CONFIRMED", "PROCESSING", "REJECTED", "CANCELLED"} : new String[0];
             case "CONFIRMED":
                 return new String[]{"PROCESSING", "SHIPPED", "CANCELLED"};
             case "PROCESSING":

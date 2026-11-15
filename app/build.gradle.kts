@@ -15,7 +15,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "BASE_URL", "\"http://10.39.191.251:8080/api/v1/\"")
+        // Updated Render Live URL with /api/v1/
+        buildConfigField("String", "BASE_URL", "\"https://retail-flow-backend-xqud.onrender.com/api/v1/\"")
         buildConfigField("String", "CLOUDINARY_CLOUD_NAME", "\"kfapwod1\"")
         buildConfigField("String", "CLOUDINARY_UPLOAD_PRESET", "\"retail_flow_unsigned\"")
     }

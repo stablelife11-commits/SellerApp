@@ -342,7 +342,7 @@ public class DashboardFragment extends Fragment {
                 String status = order.getStatus() != null ? order.getStatus().toUpperCase(Locale.ROOT) : "PLACED";
                 boolean isCancelledOrRejected = "CANCELLED".equals(status) || "REJECTED".equals(status);
 
-                if ("PLACED".equals(status)) {
+                if ("PLACED".equals(status) || "CONFIRMED".equals(status)) {
                     pendingOrders++;
                 }
                 if ("DELIVERED".equals(status)) {
@@ -539,6 +539,7 @@ public class DashboardFragment extends Fragment {
             return;
         }
 
+        boolean isAdmin = TokenManager.getInstance(requireContext()).isAdmin();
         int count = 0;
         for (SaleResponseDto order : orders) {
             if (count >= 5) break;
@@ -561,14 +562,25 @@ public class DashboardFragment extends Fragment {
             String status = order.getStatus();
             tvSaleNumber.setText(String.format(Locale.getDefault(), "Order #%d", order.getId()));
             if (tvOrderStatusBadge != null) {
-                tvOrderStatusBadge.setText(status);
+                tvOrderStatusBadge.setText("PLACED".equalsIgnoreCase(status) ? "AWAITING ADMIN" : status);
             }
             if (tvPaymentStatusBadge != null) {
                 tvPaymentStatusBadge.setText(order.getPaymentStatus());
             }
-            tvSaleCustomer.setText(String.format(Locale.getDefault(), "Buyer: %s (%s)",
-                    order.getCustomerName() != null ? order.getCustomerName() : "Buyer",
-                    order.getCustomerMobile() != null ? order.getCustomerMobile() : "N/A"));
+
+            // Seller ke paas Buyer ki details nahi dikhengi, sirf Order #ID dikhegi
+            if (isAdmin) {
+                String sellerInfo = order.getSellerBusinessName() != null && !order.getSellerBusinessName().isEmpty()
+                        ? order.getSellerBusinessName() + " (#" + order.getSellerId() + ")"
+                        : "Seller #" + order.getSellerId();
+                tvSaleCustomer.setText(String.format(Locale.getDefault(), "Buyer: %s (%s) • %s",
+                        order.getCustomerName() != null ? order.getCustomerName() : "Buyer",
+                        order.getCustomerMobile() != null ? order.getCustomerMobile() : "N/A",
+                        sellerInfo));
+            } else {
+                tvSaleCustomer.setText(String.format(Locale.getDefault(), "Order #%d • Admin Verified Dispatch", order.getId()));
+            }
+
             tvSaleTotalAmount.setText(String.format(Locale.getDefault(), "₹%.2f", order.getNetPayableAmount()));
             tvSaleDate.setText(order.getSaleDate() != null ? order.getSaleDate().replace("T", " ") : "Recent");
             int itemsCount = order.getItems() != null ? order.getItems().size() : 0;

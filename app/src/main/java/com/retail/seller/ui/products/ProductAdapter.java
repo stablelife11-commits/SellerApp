@@ -61,7 +61,8 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductV
 
         String brand = product.getBrand() != null && !product.getBrand().isEmpty() ? product.getBrand() : "Generic";
         String code = product.getProductCode() != null ? product.getProductCode() : "N/A";
-        holder.tvProductSkuBrand.setText(String.format(Locale.getDefault(), "Style Code: %s • %s", code, brand));
+        String sellerTag = product.getSellerId() != null ? " • Seller #" + product.getSellerId() : "";
+        holder.tvProductSkuBrand.setText(String.format(Locale.getDefault(), "Style Code: %s • %s%s", code, brand, sellerTag));
 
         holder.tvCategoryTag.setText(product.getCategory() != null && !product.getCategory().isEmpty() ? product.getCategory() : "General");
 
