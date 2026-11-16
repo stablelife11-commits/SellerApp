@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -10,8 +11,8 @@ android {
         applicationId = "com.retail.seller"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -61,6 +62,10 @@ dependencies {
     // Image Cropping (uCrop) & Fast Image Loading/Caching (Glide)
     implementation("com.github.yalantis:ucrop:2.2.9")
     implementation("com.github.bumptech.glide:glide:4.16.0")
+
+    // Firebase Cloud Messaging (0% Battery Push Notifications)
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-messaging")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.espresso.core)

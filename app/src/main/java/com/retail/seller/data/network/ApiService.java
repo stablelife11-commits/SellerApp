@@ -139,4 +139,8 @@ public interface ApiService {
 
     @GET("returns")
     Call<List<ReturnResponseDto>> getReturns();
+
+    // 🟢 नया: Admin और Seller का FCM Token सर्वर पर सेव करने के लिए
+    @POST("notifications/fcm-token")
+    Call<Void> updateFcmToken(@Body java.util.Map<String, String> body);
 }

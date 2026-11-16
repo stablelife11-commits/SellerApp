@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "363785774640",
+    "project_id": "flowmart-4373d",
+    "storage_bucket": "flowmart-4373d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:363785774640:android:ae518c72c60afced3d6ff5",
+        "android_client_info": {
+          "package_name": "com.retail.customershoppingapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD95r1P3rpm6U1j90q9OT8WLHI3QIY3FAo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:363785774640:android:d03e3b015ffc2d7a3d6ff5",
+        "android_client_info": {
+          "package_name": "com.retail.seller"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD95r1P3rpm6U1j90q9OT8WLHI3QIY3FAo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

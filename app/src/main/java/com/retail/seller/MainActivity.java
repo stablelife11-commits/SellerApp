@@ -1,6 +1,9 @@
 package com.retail.seller;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
@@ -14,6 +17,7 @@ import com.retail.seller.ui.inventory.InventoryFragment;
 import com.retail.seller.ui.products.ProductsFragment;
 import com.retail.seller.ui.profile.ProfileFragment;
 import com.retail.seller.ui.sales.SalesFragment;
+import com.retail.seller.utils.SellerNotificationHelper;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -94,6 +98,28 @@ public class MainActivity extends AppCompatActivity {
             }
             return targetFragment != null;
         });
+
+        // नोटिफिकेशन पर टैप करने पर सीधे Orders (Sales) टैब खोलें
+        if ("sales".equals(getIntent().getStringExtra("open_tab"))) {
+            switchToTab(R.id.nav_sales);
+        }
+
+        // Android 13+ के लिए नोटिफिकेशन परमिशन मांगें
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 102);
+            }
+        }
+
+        // Admin या Seller का FCM Token बैकएंड पर सिंक करें
+        SellerNotificationHelper.syncFcmToken(this);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        SellerNotificationHelper.syncFcmToken(this);
     }
 
     private Fragment resolveFragmentForMenuId(int itemId) {
