@@ -29,14 +29,21 @@ public class AuthInterceptor implements Interceptor {
         TokenManager tokenManager = TokenManager.getInstance(context);
         String token = tokenManager.getToken();
 
-        if (token != null && !token.trim().isEmpty() && !path.contains("/auth/")) {
+        boolean isPublicEndpoint = path.contains("/auth/") || path.contains("/app-update/");
+
+        if (token != null && !token.trim().isEmpty() && !isPublicEndpoint) {
             requestBuilder.header("Authorization", "Bearer " + token);
         }
 
         Response response = chain.proceed(requestBuilder.build());
 
-        // Only clear session on 401 Unauthorized (invalid/expired token or deactivated user)
-        if (response.code() == 401 && !path.contains("/auth/")) {
+        // Automatically save renewed sliding-session token from backend
+        String renewedToken = response.header("X-Renewed-Token");
+        if (renewedToken != null && !renewedToken.trim().isEmpty()) {
+            tokenManager.saveToken(renewedToken.trim());
+        }
+
+        if (response.code() == 401 && !isPublicEndpoint) {
             tokenManager.clearSession();
             redirectToLogin();
         }
